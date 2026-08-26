@@ -20,7 +20,7 @@ SCHEMA:
 ENTITY (7 types):
 - "shape": Visual geometric objects. Properties: shape (circle|rect|line|arrow|ellipse|polygon|path|roundedRect), x, y, radius, width, height, fill, stroke, strokeWidth, opacity, rotation.
 - "text": Labels and annotations. Properties: text, x, y, fontSize, fill, textAnchor (start|middle|end).
-- "data": Data representations. Properties: data (array), chartType, dataPoints, generator (repeat|parametric|grid|series|scatter).
+- "data": Data representations. Properties: data (nested number arrays like [[0,0],[100,250]]), chartType (line|bar|scatter).
 - "graph": Network nodes. Properties: nodeData, position (x,y).
 - "connection": Explicit connection objects. Properties: source, target, weight.
 - "abstract": Non-visual conceptual entities. Properties: any (mass, velocity, etc).
@@ -52,6 +52,19 @@ EXAMPLE — Animated circle with label:
   "viewport": { "width": 400, "height": 400 }
 }
 
+EXAMPLE — Projectile trajectory with data points:
+{
+  "meta": { "version": "1.0", "title": "Projectile Motion" },
+  "entities": [
+    { "id": "ball", "type": "shape", "properties": { "shape": "circle", "x": 50, "y": 350, "radius": 12, "fill": "#e74c3c" } },
+    { "id": "trajectory", "type": "data", "properties": { "data": [[50,350],[100,310],[150,270],[200,230],[250,190],[300,150],[350,190],[400,230],[450,270],[500,310],[550,350]], "stroke": "#e74c3c", "strokeWidth": 2, "fill": "none" } },
+    { "id": "ground", "type": "shape", "properties": { "shape": "line", "x1": 0, "y1": 370, "x2": 600, "y2": 370, "stroke": "#333", "strokeWidth": 3 } },
+    { "id": "velArrow", "type": "shape", "properties": { "shape": "arrow", "x1": 50, "y1": 350, "x2": 120, "y2": 280, "stroke": "#2196f3", "strokeWidth": 2 } }
+  ],
+  "relationships": [ { "type": "reference", "from": "trajectory", "to": "ball" } ],
+  "viewport": { "width": 600, "height": 400 }
+}
+
 RULES:
 1. Always include meta.version: "1.0"
 2. Always include entities array (at least 1 entity)
@@ -60,7 +73,10 @@ RULES:
 5. Use "group" + containment for hierarchical structures
 6. Keep property names consistent: x, y, radius, width, height, fill, stroke, opacity
 7. For 2D scenes, use x/y coordinates. For 3D scenes, add z coordinates.
-8. Viewport default: { "width": 800, "height": 600 } if not specified`
+8. Viewport default: { "width": 800, "height": 600 } if not specified
+9. Property values MUST be: string, number, boolean, null, flat array [1,2,3], nested array [[1,2],[3,4]], {ref:...}, or {expr:...}. Do NOT use arrays of objects like [{x:0,y:0}] — use nested arrays instead: [[0,0],[100,250]].
+10. Do NOT use "generator" as a property name. Use "data" with nested arrays for data points.
+11. For trajectories/data points, represent as nested number arrays: "data": [[0,0],[100,250],[200,500]]`
 
 // ─── Prompt Builder ─────────────────────────────────────────────────────────
 

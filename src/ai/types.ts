@@ -11,9 +11,9 @@ export interface OllamaConfig {
 
 export const DEFAULT_CONFIG: OllamaConfig = {
   baseUrl: 'http://localhost:11434',
-  model: 'gemma3:4b',
-  temperature: 0.3,
-  timeout: 30000,
+  model: 'gemma4:e4b',
+  temperature: 1,
+  timeout: 120000,
 }
 
 // ─── Ollama API Types ──────────────────────────────────────────────────────

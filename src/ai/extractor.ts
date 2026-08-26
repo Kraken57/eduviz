@@ -6,8 +6,13 @@ import { SYSTEM_PROMPT, buildGenerationPrompt } from './prompts.js'
 
 // ─── JSON Extraction ────────────────────────────────────────────────────────
 
+function stripThinking(text: string): string {
+  // Remove <think>...</think> blocks (Gemma 4 thinking tokens)
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+}
+
 export function extractSceneJSON(raw: string): { json: unknown; method: ParseMethod } | AIError {
-  const trimmed = raw.trim()
+  const trimmed = stripThinking(raw).trim()
 
   // Try 1: Direct JSON parse
   try {
@@ -127,7 +132,9 @@ export async function generateScene(
 // ─── Streaming Generation ───────────────────────────────────────────────────
 
 export interface StreamEvent {
-  chunk: string
+  type: 'start' | 'chunk' | 'end' | 'error'
+  text: string
+  message: string
   result?: DSLGenerationResult
 }
 
@@ -137,6 +144,7 @@ export async function* generateSceneStream(
   const prompt = buildGenerationPrompt(request.question, request.context)
 
   let lastText = ''
+  yield { type: 'start', text: '', message: '' }
   for await (const chunk of generateStream({
     prompt,
     system: SYSTEM_PROMPT,
@@ -144,20 +152,24 @@ export async function* generateSceneStream(
   })) {
     lastText = chunk.text
     if (!chunk.done) {
-      yield { chunk: lastText }
+      yield { type: 'chunk', text: lastText, message: lastText }
       continue
     }
 
     const extraction = extractSceneJSON(lastText)
     if ('code' in extraction) {
+      yield { type: 'error', text: lastText, message: `Extraction failed: ${extraction.message}` }
       throw extraction
     }
     const scene = validateExtractedScene(extraction.json)
     if ('code' in scene) {
+      yield { type: 'error', text: lastText, message: `Validation failed: ${scene.message}` }
       throw scene
     }
     yield {
-      chunk: lastText,
+      type: 'end',
+      text: lastText,
+      message: 'Generation complete',
       result: {
         scene,
         raw: lastText,

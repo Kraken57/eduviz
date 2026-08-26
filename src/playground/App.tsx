@@ -8,6 +8,8 @@ import type { ThreeSceneOutput } from '../renderers/three/types'
 import type { Scene } from '../ir/types'
 import type { RenderResult } from '../engine/renderer/types'
 import type { DSLGenerationResult } from '../ai/types'
+
+type GenLogEntry = { time: string; type: 'status' | 'stream' | 'done' | 'error'; message: string }
 import { generateScene, generateSceneStream } from '../ai/extractor'
 import { setOllamaConfig, checkHealth } from '../ai/ollama-client'
 import { examples, type Example } from './examples/index'
@@ -44,6 +46,8 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [genResult, setGenResult] = useState<DSLGenerationResult | null>(null)
   const [ollamaStatus, setOllamaStatus] = useState<'unknown' | 'ok' | 'error'>('unknown')
+  const [genLogs, setGenLogs] = useState<GenLogEntry[]>([])
+  const logEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const currentExamples = rendererMode === '2d' ? examples : examples3DFormatted
@@ -111,6 +115,10 @@ export default function App() {
     }
   }, [genResult, rendererMode, renderScene, appMode])
 
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [genLogs])
+
   const handleModeChange = (mode: RendererMode) => {
     setRendererMode(mode)
     setThreeOutput(null)
@@ -122,37 +130,25 @@ export default function App() {
     setAppMode(mode)
     setError(null)
     setGenResult(null)
+    setGenLogs([])
     if (mode === 'browse') {
       setQuestion('')
     }
   }
 
-  const handleCheckHealth = async () => {
-    const health = await checkHealth()
-    setOllamaStatus(health.ok ? 'ok' : 'error')
-    if (!health.ok && health.error) {
-      setError(health.error.message)
-    }
+  const pushLog = (type: GenLogEntry['type'], message: string) => {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    setGenLogs((prev) => [...prev, { time, type, message }])
   }
 
-  const handleGenerate = async () => {
-    if (!question.trim()) return
-    setIsGenerating(true)
-    setError(null)
-    setGenResult(null)
-
-    try {
-      const result = await generateScene({ question: question.trim() })
-      setGenResult(result)
-      setOllamaStatus('ok')
-    } catch (err) {
-      const aiErr = err as { code?: string; message?: string }
-      setError(aiErr.message ?? String(err))
-      if (aiErr.code === 'CONNECTION_REFUSED') {
-        setOllamaStatus('error')
-      }
-    } finally {
-      setIsGenerating(false)
+  const handleCheckHealth = async () => {
+    pushLog('status', 'Checking Ollama connection...')
+    const health = await checkHealth()
+    setOllamaStatus(health.ok ? 'ok' : 'error')
+    if (health.ok) {
+      pushLog('done', `Connected to Ollama (model: ${health.model ?? 'unknown'})`)
+    } else {
+      pushLog('error', health.error?.message ?? 'Connection failed')
     }
   }
 
@@ -161,16 +157,37 @@ export default function App() {
     setIsGenerating(true)
     setError(null)
     setGenResult(null)
+    setGenLogs([])
 
+    pushLog('status', `Sending prompt to Ollama (${question.trim().length} chars)...`)
+    const t0 = Date.now()
+
+    let tokenCount = 0
     try {
       for await (const event of generateSceneStream({ question: question.trim() })) {
+        if (event.type === 'start') {
+          pushLog('status', 'Model generating...')
+        } else if (event.type === 'chunk') {
+          tokenCount++
+          const preview = event.text.length > 60 ? event.text.slice(0, 60) + '...' : event.text
+          pushLog('stream', `[${tokenCount}] ${preview}`)
+        } else if (event.type === 'end') {
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+          pushLog('done', `Generation complete (${elapsed}s, ${tokenCount} tokens)`)
+        } else if (event.type === 'error') {
+          pushLog('error', event.message)
+        }
         if (event.result) {
           setGenResult(event.result)
+          pushLog('status', `Parsed via: ${event.result.parseMethod} — ${event.result.scene.entities.length} entities`)
+          pushLog('done', `Scene rendered successfully`)
         }
       }
       setOllamaStatus('ok')
     } catch (err) {
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
       const aiErr = err as { code?: string; message?: string }
+      pushLog('error', `${aiErr.message ?? String(err)} (${elapsed}s)`)
       setError(aiErr.message ?? String(err))
       if (aiErr.code === 'CONNECTION_REFUSED') {
         setOllamaStatus('error')
@@ -178,6 +195,10 @@ export default function App() {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const handleGenerate = async () => {
+    handleGenerateStream()
   }
 
   return (
@@ -236,6 +257,7 @@ export default function App() {
                 <button
                   className="btn"
                   onClick={handleCheckHealth}
+                  disabled={isGenerating}
                   style={{ marginBottom: '12px', fontSize: '12px' }}
                 >
                   Check Ollama
@@ -264,7 +286,7 @@ export default function App() {
                 <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                   <button
                     className="btn"
-                    onClick={handleGenerate}
+                    onClick={handleGenerateStream}
                     disabled={isGenerating || !question.trim()}
                     style={{ flex: 1 }}
                   >
@@ -272,22 +294,40 @@ export default function App() {
                   </button>
                   <button
                     className="btn"
-                    onClick={handleGenerateStream}
-                    disabled={isGenerating || !question.trim()}
+                    onClick={() => { setGenLogs([]); setGenResult(null); setError(null) }}
+                    disabled={isGenerating}
+                    style={{ fontSize: '12px' }}
                   >
-                    Stream
+                    Clear
                   </button>
                 </div>
                 <div style={{ marginTop: '8px', fontSize: '11px', color: '#666' }}>
                   Ctrl+Enter to generate
                 </div>
-                {genResult && (
-                  <div style={{ marginTop: '12px', padding: '8px', background: '#f0f0f0', borderRadius: '4px', fontSize: '11px' }}>
-                    <div>Parsed via: {genResult.parseMethod}</div>
-                    <div>Entities: {genResult.scene.entities.length}</div>
-                    {genResult.scene.relationships && (
-                      <div>Relationships: {genResult.scene.relationships.length}</div>
-                    )}
+                {genLogs.length > 0 && (
+                  <div style={{
+                    marginTop: '12px',
+                    background: '#1a1a2e',
+                    border: '1px solid #333',
+                    borderRadius: '6px',
+                    padding: '8px',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize: '11px',
+                    lineHeight: '1.5',
+                  }}>
+                    {genLogs.map((entry, i) => (
+                      <div key={i} style={{ color: entry.type === 'error' ? '#f44336' : entry.type === 'done' ? '#4caf50' : entry.type === 'stream' ? '#64b5f6' : '#aaa' }}>
+                        <span style={{ color: '#555' }}>{entry.time}</span>{' '}
+                        {entry.type === 'status' && <span style={{ color: '#ffa726' }}>● </span>}
+                        {entry.type === 'stream' && <span style={{ color: '#64b5f6' }}>▸ </span>}
+                        {entry.type === 'done' && <span style={{ color: '#4caf50' }}>✔ </span>}
+                        {entry.type === 'error' && <span style={{ color: '#f44336' }}>✖ </span>}
+                        {entry.message}
+                      </div>
+                    ))}
+                    <div ref={logEndRef} />
                   </div>
                 )}
               </div>

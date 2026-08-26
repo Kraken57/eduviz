@@ -50,7 +50,7 @@ function createError(code: AIErrorCode, message: string, raw?: string): AIError 
 
 // ─── Health Check ───────────────────────────────────────────────────────────
 
-export async function checkHealth(): Promise<{ ok: boolean; error?: AIError }> {
+export async function checkHealth(): Promise<{ ok: boolean; model?: string; error?: AIError }> {
   const fetch = getFetch()
   try {
     const res = await fetch(`${config.baseUrl}/api/tags`, {
@@ -73,7 +73,7 @@ export async function checkHealth(): Promise<{ ok: boolean; error?: AIError }> {
         ),
       }
     }
-    return { ok: true }
+    return { ok: true, model: config.model }
   } catch (err) {
     if (err instanceof Error && err.name === 'TimeoutError') {
       return { ok: false, error: createError('TIMEOUT', 'Ollama health check timed out') }

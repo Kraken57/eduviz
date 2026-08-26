@@ -63,9 +63,9 @@ describe('Ollama Client', () => {
     it('has correct defaults', () => {
       const cfg = getOllamaConfig()
       assert.equal(cfg.baseUrl, 'http://localhost:11434')
-      assert.equal(cfg.model, 'gemma3:4b')
-      assert.equal(cfg.temperature, 0.3)
-      assert.equal(cfg.timeout, 30000)
+      assert.equal(cfg.model, 'gemma4:e4b')
+      assert.equal(cfg.temperature, 1)
+      assert.equal(cfg.timeout, 120000)
     })
 
     it('can update config', () => {
@@ -81,7 +81,7 @@ describe('Ollama Client', () => {
     it('returns ok when model is available', async () => {
       const { fakeFetch } = mockFetch([{
         status: 200,
-        body: { models: [{ name: 'gemma3:4b', size: 1000 }] },
+        body: { models: [{ name: 'gemma4:e4b', size: 1000 }] },
       }])
       setFetchModule(fakeFetch)
 
@@ -121,13 +121,13 @@ describe('Ollama Client', () => {
       })
       assert.equal(result.text, '{"meta":{"version":"1.0"},"entities":[]}')
       assert.equal(result.done, true)
-      assert.equal(result.model, 'gemma3:4b')
+      assert.equal(result.model, 'gemma4:e4b')
     })
 
     it('sends correct request to Ollama', async () => {
       const { fakeFetch, calls } = mockFetch([{
         status: 200,
-        body: { response: 'ok', model: 'gemma3:4b', done: true },
+        body: { response: 'ok', model: 'gemma4:e4b', done: true },
       }])
       setFetchModule(fakeFetch)
 
@@ -184,9 +184,9 @@ describe('Ollama Client', () => {
 
     it('accumulates streaming chunks', async () => {
       const streamChunks = [
-        '{"model":"gemma3:4b","response":"hel","done":false}',
-        '{"model":"gemma3:4b","response":"lo","done":false}',
-        '{"model":"gemma3:4b","response":"!","done":true}',
+        '{"model":"gemma4:e4b","response":"hel","done":false}',
+        '{"model":"gemma4:e4b","response":"lo","done":false}',
+        '{"model":"gemma4:e4b","response":"!","done":true}',
       ]
       const { fakeFetch } = mockStreamFetch(streamChunks)
       setFetchModule(fakeFetch)
