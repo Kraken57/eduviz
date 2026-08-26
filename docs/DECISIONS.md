@@ -168,3 +168,20 @@ This document records significant architectural and technical decisions using an
 - Validation functions are straightforward to write and test
 - Can migrate to a schema library later if validation complexity grows
 **Consequences:** Validation is structural (field existence, types, references) rather than semantic (domain rules). Semantic validation will be added incrementally as needed.
+
+---
+
+## ADR-012: DSL as Ergonomic Authoring Layer Over IR
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** Phase 2 requires a DSL design. The key question is whether the DSL should be a separate JSON format that compiles to the IR, or conventions + builder API over the IR itself.
+**Decision:** The DSL is conventions + builder API over the IR. No separate JSON format.
+**Rationale:**
+- The IR already has the right abstraction level (7 entity types, 4 relationship types, property bags, animations, interactions)
+- A separate format would duplicate the IR schema, creating two representations to maintain
+- The IR JSON is already simple enough for Gemma 4 E4B to generate reliably
+- Builder functions add ergonomics without changing the data model
+- One format to validate, one format to render — reduces surface area for bugs
+- The "DSL" becomes the documented conventions for how to use the IR effectively
+**Consequences:** The DSL and IR share the same type system. "Compilation" is mostly applying defaults, validating, and normalizing. The DSL design document (VISUALIZATION_DSL.md) establishes conventions that the AI layer will follow when generating IR.

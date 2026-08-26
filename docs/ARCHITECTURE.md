@@ -158,6 +158,26 @@ The `validateScene()` function performs structural validation of IR documents:
 
 Invalid documents are rejected before reaching any renderer.
 
+### Visualization DSL
+
+The DSL is the authoring layer for creating IR documents. It consists of:
+
+1. **Conventions** — documented patterns for expressing common visualization structures
+2. **Builder API** — TypeScript functions that produce IR documents ergonomically
+3. **Compilation** — the DSL compiles directly to the IR (`Scene` type)
+
+The DSL does NOT introduce a new JSON format. The IR is the interchange format. The DSL is how humans and programs construct IR documents.
+
+**Key design decision:** DSL = ergonomic authoring layer over IR (not a separate format).
+
+**Why not a separate format?**
+- The IR already has the right abstraction level (entity types, property bags, relationships, animations)
+- A separate JSON format would duplicate the IR schema without clear benefit
+- LLMs generate JSON — the IR JSON is already simple enough for Gemma to produce
+- One format to validate, one format to render — less surface area for bugs
+
+See [docs/VISUALIZATION_DSL.md](VISUALIZATION_DSL.md) for the full DSL design, conventions, and examples.
+
 ### Renderer Registry
 
 A mapping from DSL visualization types to renderer implementations. When a DSL document specifies `"type": "2d-canvas"`, the registry routes it to the 2D Canvas renderer. Renderers declare which DSL features they support.

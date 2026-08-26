@@ -35,14 +35,15 @@
 
 **Goal:** Create the DSL specification format, builder helpers, and comprehensive validation.
 
-- Define the top-level DSL document schema
-- Implement DSL validation (type checking, constraint checking)
-- Create DSL builder/helper functions for common patterns
-- Write tests for valid and invalid DSL documents
-- Document the DSL format formally
+- Design DSL as conventions + builder API over the IR (see docs/VISUALIZATION_DSL.md)
+- Implement TypeScript builder functions for ergonomic IR construction
+- Define property naming conventions and structural patterns
+- Create domain-agnostic idioms for common visualization patterns
+- Write tests for builder functions and DSL validation
+- Document the DSL format with 6 domain examples
 
 **Depends on:** Phase 1
-**Deliverable:** `src/dsl/` module with types, validators, and builders.
+**Deliverable:** `src/dsl/` module with builder API, conventions documentation, and tests.
 
 ---
 
