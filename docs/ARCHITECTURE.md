@@ -38,7 +38,7 @@
 │  Routes DSL to correct renderer │
 ├──────┬──────┬──────┬───────────┤
 │ 2D   │ 3D   │Math  │  Manim    │  (each is a separate module)
-│Canvas│WebGL │Notation│ Renderer │
+│SVG ✅│WebGL │Notation│ Renderer │
 └──────┴──────┴──────┴───────────┘
 ```
 
@@ -227,6 +227,42 @@ Scene (IR) → Engine → Preprocessed Scene → Renderer Selection → Renderer
 - **Engine does not render.** It validates, preprocesses, selects, and delegates. Actual rendering happens in renderer modules.
 - **Capability-based selection.** Renderers declare what they can handle. The engine picks the best fit.
 - **Deterministic preprocessing.** Entity sorting and normalization are deterministic for reproducible results.
+
+### SVG 2D Renderer
+
+The SVG 2D renderer is a plugin that implements the `Renderer` interface. It produces interactive 2D visualizations as SVG documents.
+
+**Architecture:**
+
+```
+src/renderers/svg/
+├── types.ts          — SVG-internal types (SvgRenderContext, SvgSceneOutput, SvgAnimationMeta)
+├── builders.ts       — Low-level SVG element string builders (circle, rect, text, etc.)
+├── properties.ts     — IR property → SVG attribute extraction
+├── shapes.ts         — Shape entity → SVG element mapping
+├── text.ts           — Text entity rendering with multi-line tspan support
+├── connections.ts    — Edge/relationship rendering with arrowheads and labels
+├── groups.ts         — Group/hierarchy SVG `<g>` nesting
+├── animations.ts     — SVG `<animate>` for supported properties; metadata for others
+├── interactions.ts   — data-entity-id, data-interactive, data-cursor, data-tooltip attributes
+├── fallback.ts       — Labeled dashed rect for unsupported entity types
+├── output.ts         — SVG document assembly, viewport wrapping, serialization
+├── adapter.ts        — DOM mounting (guarded behind typeof document)
+├── renderer.ts       — SvgRenderer class implementing Renderer interface
+└── index.ts          — Public API barrel
+```
+
+**Key design decisions:**
+
+1. **String-based SVG generation.** SVG elements are constructed as strings, not DOM nodes. This makes the renderer work in Node.js (no browser dependency), testable without a DOM environment, and serializable to files. The DOM adapter is isolated and guarded.
+
+2. **Minimal animation strategy.** Only animatable SVG properties (opacity, fill, stroke, stroke-width, font-size) use SVG `<animate>` elements. Non-CSS-animatable properties (radius, position, dimensions) are preserved as structured `SvgAnimationMeta` in the output — not discarded. This avoids the complexity of a runtime animation engine while preserving animation data for future use.
+
+3. **Fallback for unsupported types.** Any entity type not yet implemented renders as a labeled dashed rectangle. This ensures every scene produces visual output even if the renderer doesn't support a specific entity type.
+
+4. **Interaction as data attributes.** Interactions are rendered as `data-*` attributes on SVG elements. A consuming application (future UI layer) can attach event listeners based on these attributes. The renderer does not attach event listeners itself.
+
+5. **Plugin isolation.** The SVG renderer lives entirely in `src/renderers/svg/`. It imports IR types from `src/ir/` but never modifies them. The core engine and DSL are untouched.
 
 ### AI Reasoning Layer (future)
 

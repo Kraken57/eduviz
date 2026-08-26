@@ -49,10 +49,37 @@ visualizer/
 │   │   ├── validate.ts     # Runtime validation
 │   │   ├── validate.test.ts # IR tests
 │   │   └── index.ts        # Public API
-│   └── dsl/                # DSL builder API
-│       ├── builders.ts     # Builder functions
-│       ├── examples.test.ts # 6 domain examples + round-trip tests
-│       └── index.ts        # Public API
+│   ├── engine/             # Core visualization engine
+│   │   ├── pipeline.ts     # Preprocessing pipeline
+│   │   ├── registry.ts     # Renderer registry
+│   │   ├── selection.ts    # Renderer selection by capability
+│   │   ├── events.ts       # Event/action system
+│   │   ├── engine.ts       # Engine orchestrator
+│   │   ├── engine.test.ts  # 54 engine tests
+│   │   └── index.ts        # Public API
+│   ├── dsl/                # DSL builder API
+│   │   ├── builders.ts     # Builder functions
+│   │   ├── examples.test.ts # 6 domain examples + round-trip tests
+│   │   └── index.ts        # Public API
+│   └── renderers/          # Renderer plugins
+│       ├── index.ts        # Renderers barrel export
+│       └── svg/            # SVG 2D renderer
+│           ├── types.ts    # SVG-internal types
+│           ├── builders.ts # SVG element string builders
+│           ├── properties.ts # IR → SVG attribute extraction
+│           ├── shapes.ts   # Shape entity rendering
+│           ├── text.ts     # Text entity rendering
+│           ├── connections.ts # Relationship rendering
+│           ├── groups.ts   # Group/hierarchy rendering
+│           ├── animations.ts # SVG animation support
+│           ├── interactions.ts # Interaction data attributes
+│           ├── fallback.ts # Fallback for unsupported types
+│           ├── output.ts   # SVG document assembly
+│           ├── adapter.ts  # DOM mounting adapter
+│           ├── renderer.ts # SvgRenderer class
+│           ├── index.ts    # Public API
+│           ├── svg.test.ts # 77 unit tests
+│           └── integration.test.ts # 10 end-to-end tests
 ├── docs/                   # Project documentation
 │   ├── PRODUCT.md          # Product requirements
 │   ├── ARCHITECTURE.md     # System design and principles

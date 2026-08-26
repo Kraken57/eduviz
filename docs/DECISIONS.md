@@ -230,3 +230,51 @@ This document records significant architectural and technical decisions using an
 - A single event model works for all renderer types
 - Actions are composable and queueable for batch processing
 **Consequences:** Renderers must adapt to the engine's event model rather than using their own. This adds a small integration cost but ensures consistency.
+
+---
+
+## ADR-016: String-Based SVG Generation
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** The SVG renderer needs to generate SVG elements. The question is whether to use DOM manipulation APIs or string construction.
+**Decision:** Build SVG elements as strings using template literals, not DOM APIs.
+**Rationale:**
+- Works in Node.js without any DOM polyfill or jsdom dependency
+- Fully testable without a browser environment
+- Output is serializable — SVG strings can be written to files, sent over network, or inspected in tests
+- DOM adapter is isolated behind `typeof document` guard for browser mounting
+- SVG is text-based by nature — string construction is natural
+**Consequences:** Must manually escape XML special characters (`<`, `>`, `&`, `"`, `'`). The `escapeXml()` utility handles this. The DOM adapter (`adapter.ts`) provides browser integration but is not required for the renderer to function.
+
+---
+
+## ADR-017: Minimal Animation Strategy
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** The IR supports rich animation (keyframes, easing, loops, timelines). The SVG renderer must handle animation without building a full runtime animation engine.
+**Decision:** Animate only CSS-animatable SVG properties via `<animate>` elements. Non-CSS-animatable properties are preserved as structured metadata.
+**Rationale:**
+- SVG `<animate>` handles opacity, fill, stroke, stroke-width, font-size reliably
+- Position, radius, and dimensions require attribute animation which SVG `<animate>` supports with `attributeName` but has limited easing support
+- Building a runtime animation engine in the renderer violates the "keep animation minimal" principle
+- Preserving animation metadata (not discarding it) allows a future UI layer or animation engine to consume it
+- The renderer documents which properties it can animate vs. which are metadata-only
+**Consequences:** Some animations will not play in the SVG output. The structured metadata in `SvgAnimationMeta[]` preserves the intent for future consumption. This is an acceptable trade-off for implementation simplicity.
+
+---
+
+## ADR-018: Interaction as Data Attributes
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** The IR supports interactions (click, hover, drag, input). The SVG renderer must represent interactions without coupling to a specific event handling system.
+**Decision:** Render interactions as `data-*` attributes on SVG elements (`data-entity-id`, `data-entity-type`, `data-interactive`, `data-cursor`, `data-tooltip`).
+**Rationale:**
+- SVG elements support arbitrary `data-*` attributes
+- A consuming application can attach event listeners by querying these attributes
+- The renderer stays pure — no `addEventListener` calls, no DOM event coupling
+- Works in both string mode (attributes are in the SVG markup) and DOM mode
+- Standard HTML5 data attributes are well-understood and widely supported
+**Consequences:** The SVG output alone does not create interactive behavior. A UI layer must interpret the data attributes and attach event listeners. This is intentional — the renderer produces data, not behavior.
