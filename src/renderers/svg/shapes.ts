@@ -33,7 +33,7 @@ export function renderShape(entity: Entity, ctx: SvgRenderContext): string {
   const rotation = extractRotation(entity.properties)
   const scale = extractScale(entity.properties)
 
-  const transform = buildTransformStr(pos, rotation, scale)
+  const transform = buildTransformStr(rotation, scale)
 
   ctx.entityMap[entity.id] = {
     elementId: `entity-${entity.id}`,
@@ -116,14 +116,10 @@ export function renderShape(entity: Entity, ctx: SvgRenderContext): string {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function buildTransformStr(
-  pos: { x: number; y: number },
   rotation?: number,
   scale?: number | { x: number; y: number },
 ): string | undefined {
   const parts: string[] = []
-  if (pos.x !== 0 || pos.y !== 0) {
-    parts.push(`translate(${pos.x}, ${pos.y})`)
-  }
   if (rotation !== undefined) {
     parts.push(`rotate(${rotation})`)
   }

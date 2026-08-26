@@ -37,6 +37,9 @@ npm start
 | `npm run lint` | Run ESLint on `src/` |
 | `npm run test` | Run tests using Node.js built-in test runner |
 | `npm run clean` | Remove `dist/` directory |
+| `npm run playground` | Start Vite dev server for the browser playground |
+| `npm run playground:build` | Build playground for production |
+| `npm run playground:preview` | Preview production playground build |
 
 ## Project Structure
 
@@ -50,43 +53,56 @@ visualizer/
 │   │   ├── validate.test.ts # IR tests
 │   │   └── index.ts        # Public API
 │   ├── engine/             # Core visualization engine
-│   │   ├── pipeline.ts     # Preprocessing pipeline
-│   │   ├── registry.ts     # Renderer registry
-│   │   ├── selection.ts    # Renderer selection by capability
-│   │   ├── events.ts       # Event/action system
 │   │   ├── engine.ts       # Engine orchestrator
-│   │   ├── engine.test.ts  # 54 engine tests
-│   │   └── index.ts        # Public API
+│   │   ├── renderer/       # Renderer interface types
+│   │   ├── registry/       # Renderer registry
+│   │   ├── selection/      # Renderer selection by capability
+│   │   ├── preprocessing/  # Scene preprocessing pipeline
+│   │   └── events/         # Event/action system
 │   ├── dsl/                # DSL builder API
 │   │   ├── builders.ts     # Builder functions
-│   │   ├── examples.test.ts # 6 domain examples + round-trip tests
 │   │   └── index.ts        # Public API
-│   └── renderers/          # Renderer plugins
-│       ├── index.ts        # Renderers barrel export
-│       └── svg/            # SVG 2D renderer
-│           ├── types.ts    # SVG-internal types
-│           ├── builders.ts # SVG element string builders
-│           ├── properties.ts # IR → SVG attribute extraction
-│           ├── shapes.ts   # Shape entity rendering
-│           ├── text.ts     # Text entity rendering
-│           ├── connections.ts # Relationship rendering
-│           ├── groups.ts   # Group/hierarchy rendering
-│           ├── animations.ts # SVG animation support
-│           ├── interactions.ts # Interaction data attributes
-│           ├── fallback.ts # Fallback for unsupported types
-│           ├── output.ts   # SVG document assembly
-│           ├── adapter.ts  # DOM mounting adapter
-│           ├── renderer.ts # SvgRenderer class
-│           ├── index.ts    # Public API
-│           ├── svg.test.ts # 77 unit tests
-│           └── integration.test.ts # 10 end-to-end tests
+│   ├── renderers/          # Renderer plugins
+│   │   ├── index.ts        # Renderers barrel export
+│   │   └── svg/            # SVG 2D renderer
+│   │       ├── types.ts    # SVG-internal types
+│   │       ├── builders.ts # SVG element string builders
+│   │       ├── properties.ts # IR → SVG attribute extraction
+│   │       ├── shapes.ts   # Shape entity rendering
+│   │       ├── text.ts     # Text entity rendering
+│   │       ├── connections.ts # Relationship rendering
+│   │       ├── groups.ts   # Group/hierarchy rendering
+│   │       ├── animations.ts # SVG animation support
+│   │       ├── interactions.ts # Interaction data attributes
+│   │       ├── fallback.ts # Fallback for unsupported types
+│   │       ├── output.ts   # SVG document assembly
+│   │       ├── adapter.ts  # DOM mounting adapter
+│   │       ├── renderer.ts # SvgRenderer class
+│   │       ├── index.ts    # Public API
+│   │       ├── svg.test.ts # 77 unit tests
+│   │       └── integration.test.ts # 10 end-to-end tests
+│   ├── playground/         # Browser playground (React + Vite)
+│   │   ├── vite.config.ts  # Vite configuration
+│   │   ├── tsconfig.json   # Playground TypeScript config
+│   │   ├── index.html      # HTML entry point
+│   │   ├── main.tsx        # React entry point
+│   │   ├── App.tsx         # Main application component
+│   │   ├── vite-env.d.ts   # Vite type declarations
+│   │   ├── styles/         # CSS styles
+│   │   │   └── global.css
+│   │   ├── components/     # React UI components
+│   │   │   ├── ExampleSelector.tsx
+│   │   │   ├── VisualizationPanel.tsx
+│   │   │   └── SceneInfo.tsx
+│   │   └── examples/       # Example scene definitions
+│   │       └── index.ts    # 6 example scenes + Example type
+│   └── playground.test.ts  # 48 playground pipeline tests
 ├── docs/                   # Project documentation
 │   ├── PRODUCT.md          # Product requirements
 │   ├── ARCHITECTURE.md     # System design and principles
 │   ├── ROADMAP.md          # Development phases
 │   ├── DECISIONS.md        # Architecture decision records
 │   └── DEVELOPMENT.md      # This file
-├── tests/                  # Additional test files
 ├── package.json
 ├── tsconfig.json
 ├── eslint.config.js

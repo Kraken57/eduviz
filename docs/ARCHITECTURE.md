@@ -264,6 +264,40 @@ src/renderers/svg/
 
 5. **Plugin isolation.** The SVG renderer lives entirely in `src/renderers/svg/`. It imports IR types from `src/ir/` but never modifies them. The core engine and DSL are untouched.
 
+### Browser Playground
+
+The browser playground is a React + Vite development interface for visually testing the visualization pipeline. It exercises the full rendering pipeline: DSL examples → `VisualizationEngine` → `SvgRenderer` → SVG DOM mounting.
+
+**Architecture:**
+
+```
+src/playground/
+├── vite.config.ts       — Vite config with @src alias for source imports
+├── tsconfig.json        — Extends root tsconfig, adds JSX + bundler resolution
+├── index.html           — HTML entry point
+├── main.tsx             — React root mount
+├── App.tsx              — Main component: engine setup, state, rendering
+├── styles/global.css    — Layout and component styles
+├── components/
+│   ├── ExampleSelector.tsx   — Sidebar list of example scenes
+│   ├── VisualizationPanel.tsx — SVG output container + toolbar
+│   └── SceneInfo.tsx         — Metadata panel (entity count, status, warnings)
+└── examples/
+    └── index.ts         — 6 example scene definitions + Example interface
+```
+
+**Key design decisions:**
+
+1. **Full pipeline, not direct SVG.** The playground instantiates a `VisualizationEngine`, registers the `SvgRenderer`, and calls `engine.render()` for each example. This tests the exact same path that production code will use.
+
+2. **Isolated from core.** `src/playground/` is excluded from the root tsconfig build (`tsc`). React JSX files are compiled only by Vite. The core library (`src/ir/`, `src/dsl/`, `src/engine/`, `src/renderers/`) remains pure TypeScript with no React dependency.
+
+3. **Scene definitions are pure TypeScript.** Example scenes use only DSL builder functions and IR types. They can be tested by both the Node.js test runner (via `src/playground.test.ts`) and rendered by the Vite dev server.
+
+4. **DOM adapter integration.** The playground uses `mountSvg()` from the SVG adapter to inject rendered SVG into a React ref container. The adapter is guarded behind `typeof document` checks, so it works in both browser and Node.js test environments.
+
+5. **Examples cover multiple domains.** The 6 examples exercise different entity types, relationships, animations, and viewport configurations — providing visual regression coverage for the SVG renderer.
+
 ### AI Reasoning Layer (future)
 
 Converts natural language into DSL documents. The AI:

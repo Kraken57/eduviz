@@ -12,7 +12,10 @@
     "lint": "eslint --no-error-on-unmatched-pattern *.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test 'dist/**/*.test.js'",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "playground": "vite",
+    "playground:build": "vite build",
+    "playground:preview": "vite preview"
   },
   "keywords": [
     "education",
@@ -28,7 +31,13 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.3.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.0",
     "eslint": "^10.9.1",
-    "typescript": "^7.0.2"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
   }
 }
