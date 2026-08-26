@@ -30,7 +30,7 @@ export class SvgRenderer implements Renderer {
   }
 
   readonly capabilities: RendererCapabilities = {
-    entityTypes: ['shape', 'text', 'data', 'graph', 'connection', 'abstract', 'group'],
+    entityTypes: ['shape', 'text', 'group'],
     relationshipTypes: ['edge', 'containment', 'constraint', 'reference'],
     features: ['2d', 'animations', 'interactions'],
   }
