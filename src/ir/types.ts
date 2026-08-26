@@ -236,6 +236,10 @@ export interface Camera {
   position?: Vec2 | Vec3
   zoom?: number
   target?: Vec2 | Vec3
+  projection?: 'perspective' | 'orthographic'
+  fov?: number
+  near?: number
+  far?: number
 }
 
 // ─── Procedural Generation ─────────────────────────────────────────────────
