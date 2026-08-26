@@ -185,3 +185,48 @@ This document records significant architectural and technical decisions using an
 - One format to validate, one format to render — reduces surface area for bugs
 - The "DSL" becomes the documented conventions for how to use the IR effectively
 **Consequences:** The DSL and IR share the same type system. "Compilation" is mostly applying defaults, validating, and normalizing. The DSL design document (VISUALIZATION_DSL.md) establishes conventions that the AI layer will follow when generating IR.
+
+---
+
+## ADR-013: Engine Is Platform-Independent
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** The engine must work across Node.js and browser environments, and must not couple to any rendering technology.
+**Decision:** The engine module (`src/engine/`) contains zero browser APIs, zero Three.js, zero Canvas, zero WebGL. It is pure TypeScript.
+**Rationale:**
+- The engine's job is validation, preprocessing, selection, and orchestration — none of which require DOM or GPU
+- Platform independence enables testing in Node.js without polyfills
+- Renderers are the appropriate place for platform-specific code
+- The engine can be unit-tested without a browser environment
+**Consequences:** Any code that touches the DOM, Canvas, or WebGL must live in renderer modules, not in the engine.
+
+---
+
+## ADR-014: Capability-Based Renderer Selection
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** Multiple renderers may be registered. The engine needs a strategy to pick the right one for a given scene.
+**Decision:** Renderers declare capabilities (entity types, relationship types, features). The engine extracts scene requirements from the IR and matches them against renderer capabilities using a specificity score.
+**Rationale:**
+- Explicit capability declarations make renderer limitations visible
+- Specificity scoring favors the most precise renderer (e.g., a 2D-only renderer is preferred over a generic one for 2D scenes)
+- The system degrades gracefully — if no renderer matches, a clear error is returned
+- Renderers can be prioritized for tie-breaking
+**Consequences:** Renderers must accurately declare their capabilities. Under-declaring causes missed renders; over-declaring causes incorrect routing.
+
+---
+
+## ADR-015: Renderer-Independent Event System
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Context:** Interactive visualizations need an event model that works across different rendering backends (Canvas, WebGL, Manim).
+**Decision:** The engine defines a renderer-independent event/action model. Events (user interactions, animation ticks, system triggers) produce typed actions (set property, animate, add/remove entity). Renderers emit events; the engine processes them.
+**Rationale:**
+- Renderers should not contain orchestration logic — they detect and emit events
+- The engine owns state transitions (property changes, entity additions/removals)
+- A single event model works for all renderer types
+- Actions are composable and queueable for batch processing
+**Consequences:** Renderers must adapt to the engine's event model rather than using their own. This adds a small integration cost but ensures consistency.

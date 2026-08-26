@@ -187,13 +187,46 @@ A mapping from DSL visualization types to renderer implementations. When a DSL d
 Every renderer implements a common interface:
 
 ```
-initialize(container) → void
-render(dslDocument) → void
-update(parameters) → void
-dispose() → void
+initialize() → Promise<void>
+canRender(scene, requirements?) → boolean
+render(context) → Promise<RenderResult>
+dispose() → Promise<void>
 ```
 
 Renderers may support subsets of the DSL. Unsupported features are either degraded gracefully or rejected with clear errors.
+
+### Core Visualization Engine
+
+The engine orchestrates the rendering pipeline. It sits between the IR/DSL layer and the renderer implementations:
+
+```
+Scene (IR) → Engine → Preprocessed Scene → Renderer Selection → Renderer → RenderResult
+```
+
+**Engine components:**
+
+1. **Preprocessing Pipeline** — Validates the scene, builds entity lookup indices (by ID, by containment, by relationship), resolves value references, normalizes properties, and extracts scene requirements (which entity types, relationship types, and features are needed).
+
+2. **Renderer Registry** — Stores registered renderers with priority. Provides lookup by ID, entity type, relationship type, and capability matching.
+
+3. **Renderer Selection** — Matches scene requirements against renderer capabilities. Uses specificity scoring: the renderer that best matches the required entity types, relationship types, and features is selected. Supports explicit target override.
+
+4. **Event System** — Renderer-independent event/action model. Events (user interactions, animation ticks, system triggers) produce actions (set property, animate, add/remove entity). Renderers emit events; the engine processes them and applies actions.
+
+**Rendering flow:**
+
+1. Validate the incoming scene (IR validation)
+2. Preprocess: build entity index, resolve references, extract requirements
+3. Select a renderer (explicit target or best-match)
+4. Execute the renderer's `render()` method
+5. Return the `RenderResult` (success/failure, output, errors, metadata)
+
+**Key design decisions:**
+
+- **Engine is platform-independent.** No browser APIs, no Three.js, no Canvas. Pure TypeScript.
+- **Engine does not render.** It validates, preprocesses, selects, and delegates. Actual rendering happens in renderer modules.
+- **Capability-based selection.** Renderers declare what they can handle. The engine picks the best fit.
+- **Deterministic preprocessing.** Entity sorting and normalization are deterministic for reproducible results.
 
 ### AI Reasoning Layer (future)
 

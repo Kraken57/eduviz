@@ -47,18 +47,20 @@
 
 ---
 
-## Phase 3: Core Visualization Engine
+## Phase 3: Core Visualization Engine ✅
 
 **Goal:** Build the engine that takes a DSL document and routes it to renderers.
 
-- Implement renderer registry (register, lookup, route)
-- Implement renderer interface contract
-- Create DSL preprocessing pipeline (validation, optimization, defaulting)
-- Implement event system for renderer lifecycle
-- Write engine integration tests
+- Implemented renderer registry (register, lookup, route by priority and capability)
+- Implemented renderer interface contract (initialize, canRender, render, dispose)
+- Created DSL preprocessing pipeline (validation, normalization, entity indexing)
+- Implemented scene requirement extraction and renderer selection (best-match by specificity)
+- Implemented event system for renderer-independent event/action model
+- Created mock renderer for testing
+- Wrote 54 engine integration tests
 
 **Depends on:** Phase 2
-**Deliverable:** `src/engine/` module with registry, pipeline, and events.
+**Deliverable:** `src/engine/` module with registry, pipeline, events, and selection.
 
 ---
 
