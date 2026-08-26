@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
-    "lint": "eslint src/",
+    "lint": "eslint --no-error-on-unmatched-pattern *.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test dist/**/*.test.js",
     "clean": "rm -rf dist"

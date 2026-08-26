@@ -43,14 +43,19 @@ npm start
 ```
 visualizer/
 ├── src/                    # TypeScript source code
-│   └── index.ts            # Entry point
+│   ├── index.ts            # Entry point
+│   └── ir/                 # Visualization IR module
+│       ├── types.ts        # IR type definitions
+│       ├── validate.ts     # Runtime validation
+│       ├── validate.test.ts # IR tests
+│       └── index.ts        # Public API
 ├── docs/                   # Project documentation
 │   ├── PRODUCT.md          # Product requirements
 │   ├── ARCHITECTURE.md     # System design and principles
 │   ├── ROADMAP.md          # Development phases
 │   ├── DECISIONS.md        # Architecture decision records
 │   └── DEVELOPMENT.md      # This file
-├── tests/                  # Test files (future)
+├── tests/                  # Additional test files
 ├── package.json
 ├── tsconfig.json
 ├── eslint.config.js

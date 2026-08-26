@@ -8,7 +8,7 @@ Student input → local AI reasoning → structured visualization specification 
 
 ## Status
 
-**Phase 0: Foundation** — Project scaffolding, documentation, and engineering setup.
+**Phase 1: Core Visualization IR** — Domain-agnostic intermediate representation with types, validation, and tests.
 
 ## Quick Start
 

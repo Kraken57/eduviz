@@ -1,6 +1,6 @@
 # Development Roadmap
 
-## Phase 0: Foundation ✅ (current)
+## Phase 0: Foundation ✅
 
 **Goal:** Establish project structure, documentation, and development tooling.
 
@@ -13,25 +13,27 @@
 
 ---
 
-## Phase 1: Core Visualization Data Model
+## Phase 1: Core Visualization Data Model ✅
 
 **Goal:** Define the TypeScript types that represent the visualization domain.
 
-- Define core entity types: shapes, text, graphs, data series, equations
-- Define relationship types: arrows, constraints, groupings
-- Define layout types: position, grid, flow, radial
-- Define animation types: sequences, transitions, easing
-- Define interactivity types: parameters, triggers, callbacks
-- Create a comprehensive type system with discriminated unions
+- Defined domain-agnostic entity types: shape, text, data, graph, connection, abstract, group
+- Defined relationship types: edge, containment, constraint, reference
+- Defined property system: value, animation, interaction layered together
+- Defined animation types: keyframes, easing, timelines, step-through
+- Defined interactivity types: click, hover, drag, input events with actions
+- Defined reference system: entity references, expressions, variables
+- Implemented runtime validation for IR documents
+- Created 30 unit tests covering all required scenarios
 
 **Depends on:** Phase 0
-**Deliverable:** `src/dsl/types.ts` with full type definitions.
+**Deliverable:** `src/ir/` module with types, validation, and tests.
 
 ---
 
-## Phase 2: Visualization DSL
+## Phase 2: Visualization DSL (current)
 
-**Goal:** Create the DSL specification format and validation.
+**Goal:** Create the DSL specification format, builder helpers, and comprehensive validation.
 
 - Define the top-level DSL document schema
 - Implement DSL validation (type checking, constraint checking)

@@ -44,18 +44,119 @@
 
 ## Key Components
 
-### Visualization DSL
+### Visualization IR (Intermediate Representation)
 
-A JSON-based structured representation of a visualization. Contains:
+The IR is the core contract in the system. It is a renderer-independent, JSON-serializable data structure that describes what to visualize — not how to render it.
 
-- **Scene**: Top-level container with metadata, parameters, and steps
-- **Entities**: Visual objects (shapes, text, graphs, data series, etc.)
-- **Relationships**: Connections between entities (arrows, constraints, equations)
-- **Layout**: Spatial arrangement rules
-- **Animation**: Temporal sequences and transitions
-- **Interactivity**: User-controllable parameters and callbacks
+**Why an IR exists:**
+- The AI (Gemma) must produce structured output that renderers can consume
+- Multiple renderers (2D, 3D, Manim) need the same input format
+- The IR is the boundary between AI reasoning and rendering execution
+- It can be validated, inspected, versioned, and debugged independently
 
-The DSL is defined as TypeScript types. Validation ensures specifications are well-formed before rendering.
+**IR Structure:**
+
+```
+Scene
+├── meta          — version, title, description, tags
+├── variables     — named constants for expressions
+├── entities[]    — the things that exist
+│   ├── id        — unique identifier
+│   ├── type      — shape | text | data | graph | connection | abstract | group
+│   ├── name      — optional human-readable name
+│   └── properties — flexible property bag
+│       ├── value     — base value (primitives, vectors, refs, expressions)
+│       ├── anim      — optional animation (keyframes, easing, duration)
+│       └── interact  — optional user interaction handlers
+├── relationships[] — connections between entities
+│   ├── type      — edge | containment | constraint | reference
+│   ├── from/to   — entity references
+│   └── label     — optional description
+├── animations[]  — top-level animation bindings (target → keyframes)
+├── timelines[]   — sequenced steps for step-through animations
+└── viewport      — canvas dimensions, background, camera
+```
+
+**Key design decisions:**
+
+1. **Domain-agnostic.** No `CellEntity`, `PhysicsEntity`, or `ChemistryEntity`. The same `Entity` type with a flexible property bag represents any domain. A cell is a `group` entity with `shape: "ellipse"` and containment relationships. A particle is an `abstract` entity with `position`, `velocity`, and `mass` properties.
+
+2. **Composable.** Entities are composed through properties and relationships, not inheritance. A graph node is a `graph` entity positioned via properties. A flowchart is a collection of `shape` entities connected by `edge` relationships.
+
+3. **Property bag pattern.** Each entity has a `Record<string, Prop | Value>` properties bag. Properties can be static values, animated (with keyframes), or interactive (with event handlers). This makes the same structure work for both static and dynamic visualizations.
+
+4. **Reference system.** Values can reference other entities (`{ ref: "entityId", property: "x" }`) or use expressions (`{ expr: "a + b", vars: {...} }`). This enables relationships like "particle position follows force field acceleration" without hard-coding domain logic.
+
+5. **Separation of concerns.** The IR describes WHAT exists and HOW it behaves temporally/spatially. It does NOT describe HOW a renderer should draw it. A renderer decides whether to draw a `shape` entity as a Canvas arc, a Three.js sphere, or a Manim circle.
+
+**Example — mathematical circle:**
+
+```json
+{
+  "meta": { "version": "1.0", "title": "Circle" },
+  "entities": [
+    {
+      "id": "circle1",
+      "type": "shape",
+      "properties": {
+        "shape": "circle",
+        "radius": {
+          "value": 1,
+          "anim": {
+            "keyframes": [
+              { "offset": 0, "value": 1 },
+              { "offset": 1, "value": 2 }
+            ],
+            "duration": 2000,
+            "easing": "easeInOut"
+          }
+        },
+        "fill": "#4A90D9"
+      }
+    }
+  ]
+}
+```
+
+**Example — physics particle:**
+
+```json
+{
+  "meta": { "version": "1.0", "title": "Projectile" },
+  "entities": [
+    {
+      "id": "particle",
+      "type": "abstract",
+      "properties": {
+        "mass": 1.0,
+        "position": { "x": 0, "y": 0 },
+        "velocity": { "x": 10, "y": 20 },
+        "acceleration": { "ref": "gravity", "property": "acceleration" }
+      }
+    },
+    {
+      "id": "gravity",
+      "type": "abstract",
+      "properties": {
+        "acceleration": { "x": 0, "y": -9.81 }
+      }
+    }
+  ]
+}
+```
+
+**Validation:**
+
+The `validateScene()` function performs structural validation of IR documents:
+- Required fields exist and have correct types
+- Entity IDs are valid non-empty strings
+- Entity types are from the allowed set
+- Relationship types are valid
+- Animation keyframes have required fields
+- References point to existing entities
+- Variables and timelines have correct structure
+
+Invalid documents are rejected before reaching any renderer.
 
 ### Renderer Registry
 

@@ -2,16 +2,8 @@ import type {
   Entity,
   EntityId,
   Expression,
-  InteractionAction,
-  InteractionEvent,
-  Keyframe,
   Primitive,
-  PropertyAnim,
-  PropertyInteract,
-  Prop,
-  Relationship,
   Scene,
-  Value,
   ValueRef,
 } from './types.js'
 
@@ -44,6 +36,15 @@ function isPrimitive(v: unknown): v is Primitive {
 
 // ─── Value Validators ──────────────────────────────────────────────────────
 
+function isFlatPrimitiveArray(v: unknown): boolean {
+  return Array.isArray(v) && v.every((e) => isPrimitive(e))
+}
+
+function isNestedArray(v: unknown): boolean {
+  if (!Array.isArray(v)) return false
+  return v.every((e) => isFlatPrimitiveArray(e) || isNestedArray(e))
+}
+
 function validateValue(v: unknown, path: string): ValidationError[] {
   if (isPrimitive(v)) return []
 
@@ -55,8 +56,21 @@ function validateValue(v: unknown, path: string): ValidationError[] {
     return []
   }
 
-  if (Array.isArray(v) && v.every((e) => isPrimitive(e))) {
+  if (isFlatPrimitiveArray(v) || isNestedArray(v)) {
     return []
+  }
+
+  if (isRecord(v)) {
+    const errors: ValidationError[] = []
+    for (const [key, val] of Object.entries(v)) {
+      if (!isPrimitive(val) && !Array.isArray(val) && !isRecord(val)) {
+        errors.push({
+          path: `${path}.${key}`,
+          message: `invalid nested value: ${JSON.stringify(val)}`,
+        })
+      }
+    }
+    return errors
   }
 
   return [{ path, message: `invalid value: ${JSON.stringify(v)}` }]
@@ -433,7 +447,7 @@ export function validateScene(doc: unknown): ValidationResult {
 
   if (errors.length === 0) {
     const entityIds = collectEntityIds(doc.entities as Entity[])
-    errors.push(...validateReferences(doc as Scene, entityIds))
+    errors.push(...validateReferences(doc as unknown as Scene, entityIds))
   }
 
   return { valid: errors.length === 0, errors }
