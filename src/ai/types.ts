@@ -96,6 +96,7 @@ export type AIErrorCode =
   | 'INVALID_RESPONSE'
   | 'VALIDATION_FAILED'
   | 'PARSE_FAILED'
+  | 'ABORTED'
 
 export interface AIError {
   code: AIErrorCode

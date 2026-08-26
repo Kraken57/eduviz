@@ -167,15 +167,15 @@ export async function* generateStream(
 
   let res: Response
   try {
+    // Don't use AbortSignal.timeout for streaming - let it stream until done
     res = await fetch(`${config.baseUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(config.timeout ?? DEFAULT_CONFIG.timeout!),
     })
   } catch (err) {
-    if (err instanceof Error && err.name === 'TimeoutError') {
-      throw createError('TIMEOUT', 'Ollama request timed out')
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw createError('ABORTED', 'Request was aborted')
     }
     throw createError(
       'CONNECTION_REFUSED',
