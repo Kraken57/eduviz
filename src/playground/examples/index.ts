@@ -1,4 +1,4 @@
-import { shape, text, scene, animated, kf, val, viewport, animBinding } from '../../dsl/builders.js'
+import { shape, text, scene, animated, kf, val, viewport, animBinding, generated, repeatGenerator, parametricGenerator, gridGenerator, seriesGenerator } from '../../dsl/builders.js'
 import type { Scene } from '../../ir/types.js'
 
 // ─── Example 1: Animated Circle ─────────────────────────────────────────────
@@ -620,6 +620,130 @@ const llmArchitecture: Scene = scene(
   },
 )
 
+// ─── Example 7: Parametric Sine Wave ────────────────────────────────────────
+
+const parametricSineWave: Scene = scene(
+  'Parametric Sine Wave',
+  [
+    generated('sine-wave', parametricGenerator(
+      't * 100 + 100',
+      '300 - sin(t) * 150',
+      0,
+      6.28,
+      100,
+      { stroke: val('#E74C3C'), strokeWidth: val(3) },
+      { outputStyle: 'polyline' },
+    ), {
+      fill: val('none'),
+    }),
+    text('title', 'Parametric Sine Wave', {
+      x: val(400),
+      y: val(50),
+      fontSize: val(24),
+      fill: val('#333'),
+      textAnchor: val('middle'),
+      fontWeight: val('bold'),
+    }),
+  ],
+  {
+    description: 'A parametric sine wave generated using the parametric generator with 100 sample points.',
+    tags: ['procedural', 'parametric', 'math'],
+    viewport: viewport(800, 600, '#f8f9fa'),
+  },
+)
+
+// ─── Example 8: Particle Field ──────────────────────────────────────────────
+
+const particleField: Scene = scene(
+  'Particle Field',
+  [
+    generated('particles', repeatGenerator(50, {
+      shape: val('circle'),
+      radius: { expr: 'seededRandom("particle", i, 42) * 5 + 1' },
+      x: { expr: 'seededRandom("x", i, 42) * 700 + 50' },
+      y: { expr: 'seededRandom("y", i, 42) * 500 + 50' },
+      fill: { expr: 'seededRandom("hue", i, 42) > 0.5 ? "#3498DB" : "#E74C3C"' },
+      opacity: 0.7,
+    }), {
+      fill: val('#3498DB'),
+    }),
+    text('title', 'Particle Field (Repeat Generator)', {
+      x: val(400),
+      y: val(50),
+      fontSize: val(24),
+      fill: val('#333'),
+      textAnchor: val('middle'),
+      fontWeight: val('bold'),
+    }),
+  ],
+  {
+    description: 'A field of randomly positioned particles generated using the repeat generator with seeded random expressions.',
+    tags: ['procedural', 'repeat', 'random'],
+    viewport: viewport(800, 600, '#f8f9fa'),
+  },
+)
+
+// ─── Example 9: Data Chart ──────────────────────────────────────────────────
+
+const dataChart: Scene = scene(
+  'Bar Chart from Data Series',
+  [
+    generated('bars', seriesGenerator(
+      [40, 80, 60, 100, 70, 50, 90],
+      '100 + i * 80',
+      '500 - value * 4',
+      { shape: val('rect') },
+      { outputStyle: 'points' },
+    ), {
+      width: val(60),
+      height: val(10),
+      fill: val('#3498DB'),
+    }),
+    text('title', 'Bar Chart (Series Generator)', {
+      x: val(400),
+      y: val(50),
+      fontSize: val(24),
+      fill: val('#333'),
+      textAnchor: val('middle'),
+      fontWeight: val('bold'),
+    }),
+  ],
+  {
+    description: 'A bar chart visualized using the series generator with data-driven positioning.',
+    tags: ['procedural', 'series', 'chart'],
+    viewport: viewport(800, 600, '#f8f9fa'),
+  },
+)
+
+// ─── Example 10: Grid Pattern ───────────────────────────────────────────────
+
+const gridPattern: Scene = scene(
+  'Checkerboard Grid',
+  [
+    generated('grid', gridGenerator(8, 8, 70, 70, {
+      shape: val('rect'),
+      x: { expr: 'col * 70 + 50' },
+      y: { expr: 'row * 70 + 100' },
+      fill: { expr: '(row + col) % 2 == 0 ? "#3498DB" : "#ECF0F1"' },
+      width: val(68),
+      height: val(68),
+    })),
+    text('title', 'Checkerboard (Grid Generator)', {
+      x: val(400),
+      y: val(50),
+      fontSize: val(24),
+      fill: val('#333'),
+      textAnchor: val('middle'),
+      fontWeight: val('bold'),
+    }),
+  ],
+  {
+    description: 'A checkerboard pattern generated using the grid generator with expression-based fill colors.',
+    tags: ['procedural', 'grid', 'pattern'],
+    viewport: viewport(800, 600, '#f8f9fa'),
+  },
+)
+
 // ─── Export ──────────────────────────────────────────────────────────────────
 
 export interface Example {
@@ -645,4 +769,8 @@ export const examples: Example[] = [
   toExample(cellHierarchy),
   toExample(aircraftSubsystems),
   toExample(llmArchitecture),
+  toExample(parametricSineWave),
+  toExample(particleField),
+  toExample(dataChart),
+  toExample(gridPattern),
 ]

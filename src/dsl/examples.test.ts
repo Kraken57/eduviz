@@ -24,6 +24,13 @@ import {
   group,
   scene,
   viewport,
+  variable,
+  repeatGenerator,
+  parametricGenerator,
+  gridGenerator,
+  seriesGenerator,
+  scatterGenerator,
+  generated,
 } from './index.js'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -437,5 +444,79 @@ describe('round-trip: DSL → IR → JSON → parse → validate', () => {
     const parsed = JSON.parse(json)
     const result = validateScene(parsed)
     assert.ok(result.valid, `round-trip failed: ${JSON.stringify(result.errors)}`)
+  })
+})
+
+// ─── Generator Builders ──────────────────────────────────────────────────────
+
+describe('generator DSL builders', () => {
+  it('creates a variable reference', () => {
+    const v = variable('i')
+    assert.deepEqual(v, { var: 'i' })
+  })
+
+  it('creates a repeat generator', () => {
+    const gen = repeatGenerator(10, {
+      shape: val('circle'),
+      radius: val(3),
+    }, { seed: 42 })
+    assert.equal(gen.type, 'repeat')
+    assert.equal(gen.count, 10)
+    assert.equal(gen.seed, 42)
+  })
+
+  it('creates a parametric generator', () => {
+    const gen = parametricGenerator(
+      't * 100',
+      'sin(t) * 50',
+      0,
+      6.28,
+      100,
+      { stroke: val('#E74C3C') },
+      { outputStyle: 'polyline' },
+    )
+    assert.equal(gen.type, 'parametric')
+    assert.equal(gen.xExpr, 't * 100')
+    assert.equal(gen.outputStyle, 'polyline')
+  })
+
+  it('creates a grid generator', () => {
+    const gen = gridGenerator(5, 5, 40, 40, {
+      shape: val('rect'),
+    })
+    assert.equal(gen.type, 'grid')
+    assert.equal(gen.rows, 5)
+    assert.equal(gen.cols, 5)
+  })
+
+  it('creates a series generator', () => {
+    const gen = seriesGenerator(
+      [10, 20, 30],
+      'i * 80',
+      '400 - value * 10',
+      { stroke: val('#3498DB') },
+      { outputStyle: 'polyline' },
+    )
+    assert.equal(gen.type, 'series')
+    assert.deepEqual(gen.data, [10, 20, 30])
+  })
+
+  it('creates a scatter generator', () => {
+    const gen = scatterGenerator(
+      [{ x: 10, y: 20 }, { x: 30, y: 40 }],
+      { shape: val('circle') },
+    )
+    assert.equal(gen.type, 'scatter')
+    assert.equal(gen.points.length, 2)
+  })
+
+  it('creates a generated entity with repeat generator', () => {
+    const s = scene('Generated Scene', [
+      generated('particles', repeatGenerator(5, {
+        shape: val('circle'),
+        radius: val(3),
+      })),
+    ])
+    assert.ok(s.entities[0].properties['generator'])
   })
 })

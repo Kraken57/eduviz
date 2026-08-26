@@ -237,3 +237,79 @@ export interface Camera {
   zoom?: number
   target?: Vec2 | Vec3
 }
+
+// ─── Procedural Generation ─────────────────────────────────────────────────
+
+export interface VariableRef {
+  var: string
+}
+
+export interface PolylineRenderData {
+  kind: 'polyline'
+  points: Array<{ x: number; y: number }>
+  closed: boolean
+}
+
+export interface PointCloudRenderData {
+  kind: 'pointcloud'
+  points: Array<{
+    x: number
+    y: number
+    radius?: number
+    label?: string
+    fill?: string
+  }>
+}
+
+export type RenderData = PolylineRenderData | PointCloudRenderData
+
+export type GeneratorType = 'repeat' | 'parametric' | 'grid' | 'series' | 'scatter'
+
+export interface BaseGeneratorDef {
+  type: GeneratorType
+  seed?: number
+  template?: PropertyBag
+}
+
+export interface RepeatGeneratorDef extends BaseGeneratorDef {
+  type: 'repeat'
+  count: number
+}
+
+export interface ParametricGeneratorDef extends BaseGeneratorDef {
+  type: 'parametric'
+  xExpr: string
+  yExpr: string
+  tMin: number
+  tMax: number
+  samples: number
+  outputStyle?: 'polyline' | 'points'
+}
+
+export interface GridGeneratorDef extends BaseGeneratorDef {
+  type: 'grid'
+  rows: number
+  cols: number
+  cellWidth: number
+  cellHeight: number
+}
+
+export interface SeriesGeneratorDef extends BaseGeneratorDef {
+  type: 'series'
+  data: number[]
+  xExpr: string
+  yExpr: string
+  outputStyle?: 'polyline' | 'points'
+}
+
+export interface ScatterGeneratorDef extends BaseGeneratorDef {
+  type: 'scatter'
+  points: Array<{ x: number; y: number }>
+}
+
+export type GeneratorDef =
+  | RepeatGeneratorDef
+  | ParametricGeneratorDef
+  | GridGeneratorDef
+  | SeriesGeneratorDef
+  | ScatterGeneratorDef

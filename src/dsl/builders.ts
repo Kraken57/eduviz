@@ -8,22 +8,28 @@ import type {
   EntityId,
   EntityType,
   Expression,
+  GridGeneratorDef,
   InteractionEvent,
   Keyframe,
+  ParametricGeneratorDef,
   Primitive,
   PropertyAnim,
   PropertyBag,
   PropertyInteract,
   Prop,
+  RepeatGeneratorDef,
   Relationship,
   RelationshipType,
+  ScatterGeneratorDef,
   Scene,
   SceneMeta,
+  SeriesGeneratorDef,
   Timeline,
   TimelineStep,
   Value,
   ValueRef,
   Viewport,
+  VariableRef,
 } from '../ir/types.js'
 
 // ─── Property Builders ──────────────────────────────────────────────────────
@@ -259,4 +265,115 @@ export function viewport(
   if (background !== undefined) v.background = background
   if (camera !== undefined) v.camera = camera
   return v
+}
+
+// ─── Variable Helpers ────────────────────────────────────────────────────────
+
+export function variable(name: string): VariableRef {
+  return { var: name }
+}
+
+// ─── Generator Builders ──────────────────────────────────────────────────────
+
+export function repeatGenerator(
+  count: number,
+  template: PropertyBag,
+  opts?: { seed?: number },
+): RepeatGeneratorDef {
+  const g: RepeatGeneratorDef = { type: 'repeat', count, template }
+  if (opts?.seed !== undefined) g.seed = opts.seed
+  return g
+}
+
+export function parametricGenerator(
+  xExpr: string,
+  yExpr: string,
+  tMin: number,
+  tMax: number,
+  samples: number,
+  template?: PropertyBag,
+  opts?: {
+    seed?: number
+    outputStyle?: 'polyline' | 'points'
+  },
+): ParametricGeneratorDef {
+  const g: ParametricGeneratorDef = {
+    type: 'parametric',
+    xExpr,
+    yExpr,
+    tMin,
+    tMax,
+    samples,
+  }
+  if (template !== undefined) g.template = template
+  if (opts?.seed !== undefined) g.seed = opts.seed
+  if (opts?.outputStyle !== undefined) g.outputStyle = opts.outputStyle
+  return g
+}
+
+export function gridGenerator(
+  rows: number,
+  cols: number,
+  cellWidth: number,
+  cellHeight: number,
+  template: PropertyBag,
+  opts?: { seed?: number },
+): GridGeneratorDef {
+  const g: GridGeneratorDef = {
+    type: 'grid',
+    rows,
+    cols,
+    cellWidth,
+    cellHeight,
+    template,
+  }
+  if (opts?.seed !== undefined) g.seed = opts.seed
+  return g
+}
+
+export function seriesGenerator(
+  data: number[],
+  xExpr: string,
+  yExpr: string,
+  template?: PropertyBag,
+  opts?: {
+    seed?: number
+    outputStyle?: 'polyline' | 'points'
+  },
+): SeriesGeneratorDef {
+  const g: SeriesGeneratorDef = {
+    type: 'series',
+    data,
+    xExpr,
+    yExpr,
+  }
+  if (template !== undefined) g.template = template
+  if (opts?.seed !== undefined) g.seed = opts.seed
+  if (opts?.outputStyle !== undefined) g.outputStyle = opts.outputStyle
+  return g
+}
+
+export function scatterGenerator(
+  points: Array<{ x: number; y: number }>,
+  template?: PropertyBag,
+  opts?: { seed?: number },
+): ScatterGeneratorDef {
+  const g: ScatterGeneratorDef = {
+    type: 'scatter',
+    points,
+  }
+  if (template !== undefined) g.template = template
+  if (opts?.seed !== undefined) g.seed = opts.seed
+  return g
+}
+
+// ─── Generator Entity Builder ────────────────────────────────────────────────
+
+export function generated(
+  id: EntityId,
+  generator: RepeatGeneratorDef | ParametricGeneratorDef | GridGeneratorDef | SeriesGeneratorDef | ScatterGeneratorDef,
+  properties?: PropertyBag,
+  opts?: { name?: string },
+): Entity {
+  return entity(id, 'shape', { generator: val(generator as unknown as Primitive), ...properties }, opts)
 }

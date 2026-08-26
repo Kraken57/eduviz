@@ -942,3 +942,223 @@ describe('isScene type guard', () => {
     assert.ok(!isScene({ meta: { version: '1.0' } }))
   })
 })
+
+// ─── Generator Validation ───────────────────────────────────────────────────
+
+describe('generator validation', () => {
+  it('accepts valid repeat generator', () => {
+    expectValid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'repeat',
+              count: 10,
+              template: { shape: 'circle' },
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('accepts valid parametric generator', () => {
+    expectValid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'parametric',
+              xExpr: 't * 100',
+              yExpr: 'sin(t) * 50',
+              tMin: 0,
+              tMax: 6.28,
+              samples: 100,
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('accepts valid grid generator', () => {
+    expectValid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'grid',
+              rows: 5,
+              cols: 5,
+              cellWidth: 40,
+              cellHeight: 40,
+              template: { shape: 'rect' },
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('accepts valid series generator', () => {
+    expectValid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'series',
+              data: [10, 20, 30],
+              xExpr: 'i * 80',
+              yExpr: 'value * 10',
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('accepts valid scatter generator', () => {
+    expectValid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'scatter',
+              points: [{ x: 10, y: 20 }],
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('rejects invalid generator type', () => {
+    expectInvalid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'invalid',
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('rejects repeat generator with negative count', () => {
+    expectInvalid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'repeat',
+              count: -1,
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('rejects parametric generator with missing xExpr', () => {
+    expectInvalid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'parametric',
+              yExpr: 'sin(t)',
+              tMin: 0,
+              tMax: 1,
+              samples: 10,
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('rejects grid generator with zero rows', () => {
+    expectInvalid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'grid',
+              rows: 0,
+              cols: 5,
+              cellWidth: 40,
+              cellHeight: 40,
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('rejects series generator with empty data', () => {
+    expectInvalid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'series',
+              data: [],
+              xExpr: 'i',
+              yExpr: 'value',
+            },
+          },
+        },
+      }],
+    })
+  })
+
+  it('rejects scatter generator with empty points', () => {
+    expectInvalid({
+      meta: { version: '1.0' },
+      entities: [{
+        id: 'a',
+        type: 'shape',
+        properties: {
+          generator: {
+            value: {
+              type: 'scatter',
+              points: [],
+            },
+          },
+        },
+      }],
+    })
+  })
+})

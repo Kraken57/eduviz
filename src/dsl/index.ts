@@ -21,4 +21,11 @@ export {
   group,
   scene,
   viewport,
+  variable,
+  repeatGenerator,
+  parametricGenerator,
+  gridGenerator,
+  seriesGenerator,
+  scatterGenerator,
+  generated,
 } from './builders.js'

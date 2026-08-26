@@ -548,7 +548,7 @@ describe('renderer metadata', () => {
     assert.ok(renderer.capabilities.entityTypes.includes('shape'))
     assert.ok(renderer.capabilities.entityTypes.includes('text'))
     assert.ok(renderer.capabilities.entityTypes.includes('group'))
-    assert.ok(!renderer.capabilities.entityTypes.includes('data'))
+    assert.ok(renderer.capabilities.entityTypes.includes('data'))
     assert.ok(!renderer.capabilities.entityTypes.includes('graph'))
     assert.ok(!renderer.capabilities.entityTypes.includes('connection'))
     assert.ok(!renderer.capabilities.entityTypes.includes('abstract'))

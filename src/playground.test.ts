@@ -16,8 +16,8 @@ function createEngine(): VisualizationEngine {
 // ─── Example Loading ─────────────────────────────────────────────────────────
 
 describe('Playground Examples', () => {
-  it('exports exactly 6 examples', () => {
-    assert.equal(examples.length, 6)
+  it('exports exactly 10 examples', () => {
+    assert.equal(examples.length, 10)
   })
 
   it('each example has required fields', () => {

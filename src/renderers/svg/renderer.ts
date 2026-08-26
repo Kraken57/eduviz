@@ -17,6 +17,7 @@ import { renderRelationship } from './connections.js'
 import { renderGroup, isRootEntity } from './groups.js'
 import { renderPropertyAnimations, renderAnimationBindings } from './animations.js'
 import { renderFallback } from './fallback.js'
+import { renderData } from './data.js'
 import { resolveViewport, wrapSvgDocument, buildSvgOutput } from './output.js'
 
 // ─── SVG Renderer ───────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export class SvgRenderer implements Renderer {
   }
 
   readonly capabilities: RendererCapabilities = {
-    entityTypes: ['shape', 'text', 'group'],
+    entityTypes: ['shape', 'text', 'group', 'data'],
     relationshipTypes: ['edge', 'containment', 'constraint', 'reference'],
     features: ['2d', 'animations', 'interactions'],
   }
@@ -176,6 +177,8 @@ export class SvgRenderer implements Renderer {
         mainSvg = renderGroup(entity, index, ctx, (e) => this.renderEntity(e, index, ctx))
         break
       case 'data':
+        mainSvg = renderData(entity, ctx)
+        break
       case 'graph':
       case 'connection':
       case 'abstract':

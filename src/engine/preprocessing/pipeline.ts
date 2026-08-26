@@ -1,6 +1,7 @@
 import type {
   Entity,
   EntityId,
+  GeneratorDef,
   PropertyBag,
   Relationship,
   RelationshipType,
@@ -10,6 +11,7 @@ import type {
 } from '../../ir/types.js'
 import { validateScene } from '../../ir/validate.js'
 import type { Capability, SceneRequirements } from '../renderer/types.js'
+import { expandGenerator, type GeneratorLimits, DEFAULT_LIMITS } from './generators/expander.js'
 
 // ─── Entity Index ───────────────────────────────────────────────────────────
 
@@ -242,6 +244,66 @@ function sortRelationships(relationships: Relationship[]): Relationship[] {
   })
 }
 
+// ─── Generator Expansion ────────────────────────────────────────────────────
+
+function expandGenerators(
+  entities: Entity[],
+  relationships: Relationship[],
+  limits: GeneratorLimits = DEFAULT_LIMITS,
+): { entities: Entity[]; relationships: Relationship[]; errors: string[] } {
+  const expanded: Entity[] = []
+  const newRelationships: Relationship[] = []
+  const errors: string[] = []
+  let totalEntities = entities.length
+
+  for (const entity of entities) {
+    const generatorProp = entity.properties['generator']
+    if (generatorProp === undefined || generatorProp === null) {
+      expanded.push(entity)
+      continue
+    }
+
+    if (typeof generatorProp !== 'object' || Array.isArray(generatorProp)) {
+      expanded.push(entity)
+      continue
+    }
+
+    const generator = generatorProp as unknown as GeneratorDef
+    if (!('type' in generator)) {
+      expanded.push(entity)
+      continue
+    }
+
+    if (totalEntities > limits.maxTotalEntities) {
+      errors.push(`Total entity limit exceeded (${limits.maxTotalEntities})`)
+      break
+    }
+
+    const result = expandGenerator(entity.id, generator, limits)
+    if (result.errors.length > 0) {
+      errors.push(...result.errors.map(e => `${entity.id}: ${e}`))
+      continue
+    }
+
+    expanded.push(...result.entities)
+    totalEntities += result.entities.length
+
+    for (const childEntity of result.entities) {
+      newRelationships.push({
+        type: 'containment',
+        from: entity.id,
+        to: childEntity.id,
+      })
+    }
+  }
+
+  return {
+    entities: expanded,
+    relationships: [...relationships, ...newRelationships],
+    errors,
+  }
+}
+
 // ─── Preprocessing Pipeline ─────────────────────────────────────────────────
 
 export interface PreprocessResult {
@@ -250,7 +312,7 @@ export interface PreprocessResult {
   errors: string[]
 }
 
-export function preprocessScene(scene: Scene): PreprocessResult {
+export function preprocessScene(scene: Scene, limits?: GeneratorLimits): PreprocessResult {
   const validation = validateScene(scene)
   if (!validation.valid) {
     return {
@@ -259,8 +321,18 @@ export function preprocessScene(scene: Scene): PreprocessResult {
     }
   }
 
-  const sortedEntities = sortEntities(scene.entities)
-  const sortedRelationships = sortRelationships(scene.relationships ?? [])
+  const { entities: expandedEntities, relationships: expandedRelationships, errors: genErrors } =
+    expandGenerators(scene.entities, scene.relationships ?? [], limits)
+
+  if (genErrors.length > 0 && expandedEntities.length === 0) {
+    return {
+      success: false,
+      errors: genErrors,
+    }
+  }
+
+  const sortedEntities = sortEntities(expandedEntities)
+  const sortedRelationships = sortRelationships(expandedRelationships)
 
   const normalizedScene: Scene = {
     ...scene,
@@ -289,7 +361,7 @@ export function preprocessScene(scene: Scene): PreprocessResult {
       entityIndex,
       sceneRequirements,
     },
-    errors: [],
+    errors: genErrors,
   }
 }
 

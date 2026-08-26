@@ -106,6 +106,18 @@ function validateProp(v: unknown, path: string): ValidationError[] {
   return errors
 }
 
+function validateGeneratorProp(v: unknown, path: string): ValidationError[] {
+  if (!isRecord(v)) {
+    return [{ path, message: 'generator property must be an object' }]
+  }
+
+  if ('value' in v) {
+    return validateGenerator(v.value, `${path}.value`)
+  }
+
+  return validateGenerator(v, path)
+}
+
 function validatePropAnim(v: Record<string, unknown>, path: string): ValidationError[] {
   const errors: ValidationError[] = []
 
@@ -229,6 +241,95 @@ function validateInteractionAction(v: unknown, path: string): ValidationError[] 
   }
 }
 
+// ─── Generator Validator ─────────────────────────────────────────────────────
+
+const VALID_GENERATOR_TYPES = new Set(['repeat', 'parametric', 'grid', 'series', 'scatter'])
+
+function validateGenerator(v: unknown, path: string): ValidationError[] {
+  if (!isRecord(v)) {
+    return [{ path, message: 'generator must be an object' }]
+  }
+
+  const errors: ValidationError[] = []
+
+  if (typeof v.type !== 'string' || !VALID_GENERATOR_TYPES.has(v.type)) {
+    errors.push({
+      path: `${path}.type`,
+      message: `must be one of: ${[...VALID_GENERATOR_TYPES].join(', ')}`,
+    })
+    return errors
+  }
+
+  if (v.seed !== undefined && typeof v.seed !== 'number') {
+    errors.push({ path: `${path}.seed`, message: 'must be a number' })
+  }
+
+  if (v.template !== undefined && !isRecord(v.template)) {
+    errors.push({ path: `${path}.template`, message: 'must be an object' })
+  }
+
+  switch (v.type) {
+    case 'repeat':
+      if (typeof v.count !== 'number' || v.count < 0) {
+        errors.push({ path: `${path}.count`, message: 'must be a non-negative number' })
+      }
+      break
+    case 'parametric':
+      if (typeof v.xExpr !== 'string') {
+        errors.push({ path: `${path}.xExpr`, message: 'must be a string' })
+      }
+      if (typeof v.yExpr !== 'string') {
+        errors.push({ path: `${path}.yExpr`, message: 'must be a string' })
+      }
+      if (typeof v.tMin !== 'number') {
+        errors.push({ path: `${path}.tMin`, message: 'must be a number' })
+      }
+      if (typeof v.tMax !== 'number') {
+        errors.push({ path: `${path}.tMax`, message: 'must be a number' })
+      }
+      if (typeof v.samples !== 'number' || v.samples < 2) {
+        errors.push({ path: `${path}.samples`, message: 'must be a number >= 2' })
+      }
+      break
+    case 'grid':
+      if (typeof v.rows !== 'number' || v.rows < 1) {
+        errors.push({ path: `${path}.rows`, message: 'must be a number >= 1' })
+      }
+      if (typeof v.cols !== 'number' || v.cols < 1) {
+        errors.push({ path: `${path}.cols`, message: 'must be a number >= 1' })
+      }
+      if (typeof v.cellWidth !== 'number' || v.cellWidth <= 0) {
+        errors.push({ path: `${path}.cellWidth`, message: 'must be a positive number' })
+      }
+      if (typeof v.cellHeight !== 'number' || v.cellHeight <= 0) {
+        errors.push({ path: `${path}.cellHeight`, message: 'must be a positive number' })
+      }
+      break
+    case 'series':
+      if (!Array.isArray(v.data)) {
+        errors.push({ path: `${path}.data`, message: 'must be an array' })
+      } else if (v.data.length === 0) {
+        errors.push({ path: `${path}.data`, message: 'must not be empty' })
+      }
+      if (typeof v.xExpr !== 'string') {
+        errors.push({ path: `${path}.xExpr`, message: 'must be a string' })
+      }
+      if (typeof v.yExpr !== 'string') {
+        errors.push({ path: `${path}.yExpr`, message: 'must be a string' })
+      }
+      break
+    case 'scatter':
+      if (!Array.isArray(v.points)) {
+        errors.push({ path: `${path}.points`, message: 'must be an array' })
+      } else if (v.points.length === 0) {
+        errors.push({ path: `${path}.points`, message: 'must not be empty' })
+      }
+      break
+  }
+
+  return errors
+}
+
 // ─── Entity Validator ──────────────────────────────────────────────────────
 
 const VALID_ENTITY_TYPES = new Set([
@@ -268,7 +369,11 @@ function validateEntity(v: unknown, path: string): ValidationError[] {
       errors.push({ path: `${path}.properties`, message: 'must be an object' })
     } else {
       for (const [key, val] of Object.entries(v.properties)) {
-        errors.push(...validateProp(val, `${path}.properties.${key}`))
+        if (key === 'generator') {
+          errors.push(...validateGeneratorProp(val, `${path}.properties.generator`))
+        } else {
+          errors.push(...validateProp(val, `${path}.properties.${key}`))
+        }
       }
     }
   }
