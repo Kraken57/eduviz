@@ -46,7 +46,7 @@ npm start
 ```
 visualizer/
 ├── src/                    # TypeScript source code
-│   ├── index.ts            # Entry point
+│   ├── index.ts            # Entry point (exports all public API)
 │   ├── ir/                 # Visualization IR module
 │   │   ├── types.ts        # IR type definitions
 │   │   ├── validate.ts     # Runtime validation
@@ -63,39 +63,70 @@ visualizer/
 │   │   ├── builders.ts     # Builder functions
 │   │   └── index.ts        # Public API
 │   ├── renderers/          # Renderer plugins
-│   │   ├── index.ts        # Renderers barrel export
-│   │   └── svg/            # SVG 2D renderer
-│   │       ├── types.ts    # SVG-internal types
-│   │       ├── builders.ts # SVG element string builders
-│   │       ├── properties.ts # IR → SVG attribute extraction
-│   │       ├── shapes.ts   # Shape entity rendering
-│   │       ├── text.ts     # Text entity rendering
-│   │       ├── connections.ts # Relationship rendering
-│   │       ├── groups.ts   # Group/hierarchy rendering
-│   │       ├── animations.ts # SVG animation support
-│   │       ├── interactions.ts # Interaction data attributes
-│   │       ├── fallback.ts # Fallback for unsupported types
-│   │       ├── output.ts   # SVG document assembly
+│   │   ├── index.ts        # Renderers barrel export (SVG + Three.js)
+│   │   ├── svg/            # SVG 2D renderer
+│   │   │   ├── types.ts    # SVG-internal types
+│   │   │   ├── builders.ts # SVG element string builders
+│   │   │   ├── properties.ts # IR → SVG attribute extraction
+│   │   │   ├── shapes.ts   # Shape entity rendering
+│   │   │   ├── text.ts     # Text entity rendering
+│   │   │   ├── connections.ts # Relationship rendering
+│   │   │   ├── groups.ts   # Group/hierarchy rendering
+│   │   │   ├── animations.ts # SVG animation support
+│   │   │   ├── interactions.ts # Interaction data attributes
+│   │   │   ├── fallback.ts # Fallback for unsupported types
+│   │   │   ├── output.ts   # SVG document assembly
+│   │   │   ├── adapter.ts  # DOM mounting adapter
+│   │   │   ├── renderer.ts # SvgRenderer class
+│   │   │   ├── index.ts    # Public API
+│   │   │   ├── svg.test.ts # 77 unit tests
+│   │   │   └── integration.test.ts # 10 end-to-end tests
+│   │   └── three/          # Three.js 3D renderer
+│   │       ├── types.ts    # Three.js types
+│   │       ├── materials.ts # Material resolution
+│   │       ├── camera.ts   # Camera config
+│   │       ├── lighting.ts # Lighting config
+│   │       ├── transforms.ts # Position/rotation/scale
+│   │       ├── shapes.ts   # 3D shape creation
+│   │       ├── groups.ts   # Scene graph hierarchy
+│   │       ├── data.ts     # Polyline/PointCloud rendering
+│   │       ├── connections.ts # Edge rendering
+│   │       ├── animations.ts # AnimationMixer integration
+│   │       ├── interactions.ts # Raycasting + cursor
+│   │       ├── scene.ts    # Scene graph construction
+│   │       ├── fallback.ts # Unsupported entity fallback
+│   │       ├── output.ts   # Output assembly
+│   │       ├── renderer.ts # ThreeRenderer class
 │   │       ├── adapter.ts  # DOM mounting adapter
-│   │       ├── renderer.ts # SvgRenderer class
 │   │       ├── index.ts    # Public API
-│   │       ├── svg.test.ts # 77 unit tests
-│   │       └── integration.test.ts # 10 end-to-end tests
+│   │       └── renderer.test.ts # 93 tests
+│   ├── ai/                 # AI integration (Ollama/Gemma)
+│   │   ├── types.ts        # OllamaConfig, GenerationRequest, AIError
+│   │   ├── prompts.ts      # System prompt + prompt builder
+│   │   ├── ollama-client.ts # HTTP client for Ollama API
+│   │   ├── extractor.ts    # JSON extraction + validation
+│   │   ├── index.ts        # Public API barrel
+│   │   ├── prompts.test.ts # Prompt structure tests
+│   │   ├── ollama-client.test.ts # Client tests
+│   │   ├── extractor.test.ts # Extraction tests
+│   │   └── generation.test.ts # Integration tests
 │   ├── playground/         # Browser playground (React + Vite)
 │   │   ├── vite.config.ts  # Vite configuration
 │   │   ├── tsconfig.json   # Playground TypeScript config
 │   │   ├── index.html      # HTML entry point
 │   │   ├── main.tsx        # React entry point
-│   │   ├── App.tsx         # Main application component
+│   │   ├── App.tsx         # Main application component (2D/3D/Generate modes)
 │   │   ├── vite-env.d.ts   # Vite type declarations
 │   │   ├── styles/         # CSS styles
 │   │   │   └── global.css
 │   │   ├── components/     # React UI components
 │   │   │   ├── ExampleSelector.tsx
 │   │   │   ├── VisualizationPanel.tsx
+│   │   │   ├── ThreePanel.tsx
 │   │   │   └── SceneInfo.tsx
 │   │   └── examples/       # Example scene definitions
-│   │       └── index.ts    # 6 example scenes + Example type
+│   │       ├── index.ts    # 10 2D example scenes + Example type
+│   │       └── three3d.ts  # 5 3D example scenes
 │   └── playground.test.ts  # 48 playground pipeline tests
 ├── docs/                   # Project documentation
 │   ├── PRODUCT.md          # Product requirements

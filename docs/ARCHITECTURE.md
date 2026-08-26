@@ -298,7 +298,7 @@ src/playground/
 
 5. **Examples cover multiple domains.** The 6 examples exercise different entity types, relationships, animations, and viewport configurations — providing visual regression coverage for the SVG renderer.
 
-### AI Reasoning Layer (future)
+### AI Reasoning Layer
 
 Converts natural language into DSL documents. The AI:
 
@@ -308,6 +308,38 @@ Converts natural language into DSL documents. The AI:
 - Optionally includes annotations explaining its reasoning
 
 The AI is a planner. It does not render. It does not generate code.
+
+**Implementation (`src/ai/`):**
+
+```
+src/ai/
+├── types.ts              — OllamaConfig, GenerationRequest, AIError types
+├── prompts.ts            — SYSTEM_PROMPT (IR schema + few-shot examples), buildGenerationPrompt
+├── ollama-client.ts      — HTTP client: setOllamaConfig, checkHealth, generate, generateStream
+├── extractor.ts          — extractSceneJSON, validateExtractedScene, generateScene, generateSceneStream
+├── index.ts              — Public API barrel
+├── prompts.test.ts       — Prompt structure tests
+├── ollama-client.test.ts — Client tests with mock fetch
+├── extractor.test.ts     — JSON extraction and validation tests
+└── generation.test.ts    — Integration tests (AI → renderer pipeline)
+```
+
+**Key design decisions:**
+
+1. **Ollama HTTP client, not SDK.** Raw `fetch()` to `POST /api/generate`. Zero production dependencies. Works in both Node.js 18+ and browsers.
+
+2. **Lazy fetch import.** Same pattern as Three.js renderer — `setFetchModule()` for testability.
+
+3. **System prompt with IR schema.** The system prompt teaches the model the exact IR structure: 7 entity types, 4 relationship types, property conventions, and one full JSON example. This is ~3K tokens, well within Gemma's 32K context.
+
+4. **JSON extraction with 3 fallback strategies:**
+   - Direct `JSON.parse()` (clean response)
+   - Markdown code fence extraction (response wrapped in ```json fences)
+   - Brace-counting extraction (response has preamble + JSON)
+
+5. **Mock mode.** All functions accept `mockResponse` parameter. No HTTP needed for testing.
+
+6. **AI layer is isolated.** `src/ai/` imports from `src/ir/` (for `validateScene`) and `src/ir/types.ts` (for `Scene`) but never from `src/engine/` or `src/renderers/`. The AI produces Scene JSON; the engine consumes it.
 
 ## Technology Stack
 

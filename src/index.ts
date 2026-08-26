@@ -1,2 +1,5 @@
-console.log("EduViz v0.1.0 — Universal Educational Visualization Engine");
-console.log("Project initialized. See docs/ROADMAP.md for development phases.");
+export * from './ir/index.js'
+export * from './dsl/index.js'
+export * from './engine/index.js'
+export * from './renderers/index.js'
+export * from './ai/index.js'

@@ -85,7 +85,7 @@
 
 ---
 
-## Phase 5: 3D Renderer
+## Phase 5: 3D Renderer ✅
 
 **Goal:** Build a renderer for interactive 3D visualizations.
 
@@ -96,7 +96,7 @@
 - Create examples: geometric solids, coordinate systems, data surfaces
 
 **Depends on:** Phase 3, Phase 4 (for shared abstractions)
-**Deliverable:** `src/renderers/3d/` module.
+**Deliverable:** `src/renderers/three/` module.
 
 ---
 
@@ -132,15 +132,18 @@
 
 ---
 
-## Phase 8: Local Gemma/Ollama Integration
+## Phase 8: Local Gemma/Ollama Integration ✅
 
 **Goal:** Connect to a local LLM for AI-powered visualization generation.
 
-- Implement Ollama client (HTTP API integration)
-- Implement prompt engineering for DSL generation
-- Implement DSL extraction from LLM responses
-- Support streaming and incremental output
-- Handle errors, timeouts, and malformed responses
+- Implemented Ollama HTTP client with lazy fetch import (`src/ai/ollama-client.ts`)
+- Implemented prompt engineering with system prompt teaching IR schema (`src/ai/prompts.ts`)
+- Implemented JSON extraction with 3 fallback strategies: direct parse, code fence, brace counting (`src/ai/extractor.ts`)
+- Implemented streaming support via NDJSON (`generateStream`)
+- Implemented mock mode for testing without Ollama
+- Implemented health check and model validation
+- 35 AI module tests: prompts, client, extraction, generation, integration
+- Playground integration: Generate mode with AI input UI
 
 **Depends on:** Phase 2, Phase 7 (for UI)
 **Deliverable:** `src/ai/` module.
