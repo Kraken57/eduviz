@@ -15,11 +15,15 @@ export type Expression = {
 
 export type PrimArray = Primitive[]
 
+export type NestedArray = PrimArray[]
+
 export type Value =
   | Primitive
   | ValueRef
   | Expression
   | PrimArray
+  | NestedArray
+  | Record<string, Primitive>
 
 // ─── Spatial ───────────────────────────────────────────────────────────────
 

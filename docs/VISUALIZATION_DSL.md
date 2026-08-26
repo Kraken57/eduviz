@@ -1226,40 +1226,102 @@ An LLM pipeline with hierarchy, connections, labels, and animated information fl
 
 7. **Evolvable.** New entity types, properties, and patterns can be added without breaking existing documents.
 
-## Builder API (Phase 2 Implementation)
+## Builder API
 
-The Phase 2 implementation will provide TypeScript builder functions:
+TypeScript builder functions that produce IR documents. Import from `src/dsl/`.
+
+### Scene
 
 ```typescript
-// Scene builder
-const scene = buildScene({
-  title: 'Projectile Motion',
-  entities: [
-    buildEntity('particle', 'abstract', {
-      mass: 1.0,
-      position: vec2(0, 0),
-      velocity: vec2(15, 25),
-    }),
-    buildEntity('gravity', 'abstract', {
-      acceleration: vec2(0, -9.81),
-    }),
-  ],
-  relationships: [
-    buildRelationship('constraint', 'particle', 'gravity'),
-  ],
-  viewport: { width: 500, height: 300 },
-})
+import { scene, viewport } from './dsl/index.js'
 
-// Returns a valid IR Scene document
-const ir = compile(scene)
+const s = scene('My Title', [/* entities */], {
+  description: 'Optional description',
+  author: 'Optional author',
+  tags: ['math', 'interactive'],
+  variables: { gravity: 9.81 },
+  relationships: [/* relationships */],
+  animations: [/* animations */],
+  timelines: [/* timelines */],
+  viewport: viewport(400, 300, '#FFFFFF'),
+})
 ```
 
-Builder functions provide:
-- Auto-generated IDs (when omitted)
-- Default values for optional fields
-- Type-safe property construction
-- Shorthand for common patterns (vec2, arrow, text)
-- Compilation to validated IR
+### Entity Builders
+
+```typescript
+import { shape, text, data, graph, connection, abstractEntity, group } from './dsl/index.js'
+
+shape('circle1', 'circle', { radius: val(50), fill: val('#4A90D9') }, { name: 'My Circle' })
+text('label1', 'Hello', { fontSize: val(16) }, { name: 'Label' })
+data('chart1', [[0,0],[10,20]], { chartType: val('scatter') }, { name: 'Chart' })
+graph('node1', 'Node A', { position: val({ x: 0, y: 0 }) }, { name: 'Node' })
+connection('wire1', { weight: val(5) }, { name: 'Wire' })
+abstractEntity('particle', { mass: val(1), velocity: val({ x: 10, y: 0 }) }, { name: 'Particle' })
+group('container', { fill: val('#F0F0F0') }, { name: 'Container' })
+```
+
+### Property Helpers
+
+```typescript
+import { val, animated, interactive, ref, expr } from './dsl/index.js'
+
+val(42)                          // static value
+val({ x: 0, y: 0 })             // object value
+val(ref('other', 'position'))    // reference
+val(expr('mass * g'))            // expression
+
+animated(1, [kf(0, 1), kf(1, 2)], 2000, { easing: 'easeInOut', loop: true })
+interactive('pointer', [
+  { event: 'click', action: { type: 'toggle', target: 'box.fill' } },
+], { cursor: 'pointer', tooltip: 'Click me' })
+```
+
+### Relationship Builders
+
+```typescript
+import { edge, contains, constrained, referenced } from './dsl/index.js'
+
+edge('a', 'b', 'connects to', { weight: val(5) })
+contains('parent', 'child', 'contains')
+constrained('particle', 'gravity', 'subject to')
+referenced('label', 'shape', 'describes')
+```
+
+### Animation & Timeline Builders
+
+```typescript
+import { kf, animBinding, step, timeline } from './dsl/index.js'
+
+kf(0, 1)           // keyframe at offset 0 with value 1
+kf(1, 2, 'easeIn') // keyframe with easing
+
+animBinding('circle.radius', [kf(0, 10), kf(1, 50)], 2000, { easing: 'linear', loop: true })
+
+step(0, { description: 'Step 1' })
+step(2000, { description: 'Step 2', animations: ['box.opacity'] })
+
+timeline('proof', [step(0, { description: 'Given' }), step(1000, { description: 'Result' })], { auto: true, loop: false })
+```
+
+### Viewport
+
+```typescript
+import { viewport } from './dsl/index.js'
+
+viewport(800, 600, '#FFFFFF', { position: { x: 0, y: 0 }, zoom: 1.0 })
+```
+
+### Usage in Tests
+
+The builder API is used in `src/dsl/examples.test.ts` with 15 tests covering:
+- Math: animated circle, coordinate plane with function curve
+- Physics: projectile motion with variables, linked springs
+- Biology: cell with organelles (hierarchy)
+- Process: state machine with timeline (water cycle)
+- Graph: social network, tree hierarchy
+- Animation/Interaction: bouncing ball, toggle, proof steps, easing comparison
+- Round-trip: DSL → IR → JSON → parse → validate (3 scenarios)
 
 ## Future Evolution
 

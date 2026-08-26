@@ -44,10 +44,14 @@ npm start
 visualizer/
 ├── src/                    # TypeScript source code
 │   ├── index.ts            # Entry point
-│   └── ir/                 # Visualization IR module
-│       ├── types.ts        # IR type definitions
-│       ├── validate.ts     # Runtime validation
-│       ├── validate.test.ts # IR tests
+│   ├── ir/                 # Visualization IR module
+│   │   ├── types.ts        # IR type definitions
+│   │   ├── validate.ts     # Runtime validation
+│   │   ├── validate.test.ts # IR tests
+│   │   └── index.ts        # Public API
+│   └── dsl/                # DSL builder API
+│       ├── builders.ts     # Builder functions
+│       ├── examples.test.ts # 6 domain examples + round-trip tests
 │       └── index.ts        # Public API
 ├── docs/                   # Project documentation
 │   ├── PRODUCT.md          # Product requirements

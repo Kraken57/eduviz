@@ -39,6 +39,8 @@ export type {
   Scene,
   Viewport,
   Camera,
+  PrimArray,
+  NestedArray,
 } from './types.js'
 
 export { validateScene, isScene } from './validate.js'
