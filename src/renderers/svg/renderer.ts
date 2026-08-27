@@ -20,6 +20,33 @@ import { renderFallback } from './fallback.js'
 import { renderData } from './data.js'
 import { resolveViewport, wrapSvgDocument, buildSvgOutput } from './output.js'
 
+// ─── Inject SMIL animations inside an SVG element ───────────────────────────
+
+function injectAnimationsIntoElement(svg: string, animSvgs: string[]): string {
+  if (animSvgs.length === 0) return svg
+  const animContent = animSvgs.join('')
+
+  // Self-closing: <circle ... /> → <circle ...>animations</circle>
+  const selfClosingMatch = svg.match(/^(<\w+[^>]*?)\/>$/)
+  if (selfClosingMatch) {
+    const tagMatch = selfClosingMatch[1].match(/^<(\w+)/)
+    if (tagMatch) {
+      const tagName = tagMatch[1]
+      return `${selfClosingMatch[1]}>${animContent}</${tagName}>`
+    }
+  }
+
+  // Already has content: <text ...>content</text> → inject before </text>
+  const closingTagMatch = svg.match(/<\/(\w+)>$/)
+  if (closingTagMatch) {
+    const insertPos = svg.lastIndexOf('</')
+    return svg.slice(0, insertPos) + animContent + svg.slice(insertPos)
+  }
+
+  // Fallback: wrap in group
+  return `<g>${svg}${animContent}</g>`
+}
+
 // ─── SVG Renderer ───────────────────────────────────────────────────────────
 
 export class SvgRenderer implements Renderer {
@@ -189,9 +216,9 @@ export class SvgRenderer implements Renderer {
         break
     }
 
+    // Inject SMIL animations INSIDE the element (not as siblings)
     if (animSvgs.length > 0) {
-      const wrapper = `<g data-entity-id="${entity.id}" data-layer="animations">${animSvgs.join('')}</g>`
-      return mainSvg + wrapper
+      return injectAnimationsIntoElement(mainSvg, animSvgs)
     }
 
     return mainSvg

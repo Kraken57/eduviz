@@ -3,7 +3,7 @@ import type { SvgRenderContext } from './types.js'
 import { animate } from './builders.js'
 import { resolvePrimitive } from './properties.js'
 
-// ─── CSS Property → SVG Attribute Map ───────────────────────────────────────
+// ─── CSS Property → SVG Attribute Map (for SMIL) ───────────────────────────
 
 const CSS_ANIMATABLE: Record<string, string> = {
   opacity: 'opacity',
@@ -11,6 +11,40 @@ const CSS_ANIMATABLE: Record<string, string> = {
   stroke: 'stroke',
   'stroke-width': 'stroke-width',
   'font-size': 'font-size',
+}
+
+// ─── IR Property → SVG Attribute (for SMIL attributeName) ───────────────────
+
+function irToSvgAttr(irProp: string): string {
+  const map: Record<string, string> = {
+    radius: 'r',
+    x: 'cx',
+    y: 'cy',
+    width: 'width',
+    height: 'height',
+    opacity: 'opacity',
+    fill: 'fill',
+    stroke: 'stroke',
+    strokeWidth: 'stroke-width',
+    fontSize: 'font-size',
+  }
+  return map[irProp] ?? irProp
+}
+
+// ─── IR Property → CSS Property (for CSS @keyframes) ───────────────────────
+
+const CSS_GEOM_PROPERTIES: Record<string, string> = {
+  radius: 'r',
+  x: 'cx',
+  y: 'cy',
+  opacity: 'opacity',
+  fill: 'fill',
+  stroke: 'stroke',
+  strokeWidth: 'stroke-width',
+  fontSize: 'font-size',
+  r: 'r',
+  cx: 'cx',
+  cy: 'cy',
 }
 
 // ─── Easing → CSS Timing Function ────────────────────────────────────────────
@@ -37,16 +71,12 @@ function easingToKeySplines(easing?: string): string | undefined {
   return map[easing]
 }
 
-// ─── CSS Animation Collection ────────────────────────────────────────────────
+// ─── Normalize keyframe offsets to 0-1 range ────────────────────────────────
 
-export interface CssAnimation {
-  entityId: string
-  property: string
-  keyframes: Keyframe[]
-  duration: number
-  easing?: string
-  loop?: boolean
-  delay?: number
+function normalizeOffsets(keyframes: Keyframe[]): Keyframe[] {
+  const maxOffset = Math.max(...keyframes.map(k => k.offset))
+  if (maxOffset <= 1) return keyframes
+  return keyframes.map(k => ({ ...k, offset: k.offset / maxOffset }))
 }
 
 // ─── Property Animations (per-entity) ───────────────────────────────────────
@@ -65,10 +95,12 @@ export function renderPropertyAnimations(
     if (!anim) continue
 
     const svgAttr = CSS_ANIMATABLE[key]
+
     if (svgAttr) {
-      // SMIL animate for CSS-animated properties (opacity, fill, etc.)
-      const values = anim.keyframes.map(k => String(resolvePrimitive(k.value) ?? '')).join(';')
-      const keyTimes = anim.keyframes.map(k => String(k.offset)).join(';')
+      // SMIL animate for CSS-known properties (opacity, fill, stroke, etc.)
+      const kf = normalizeOffsets(anim.keyframes)
+      const values = kf.map(k => String(resolvePrimitive(k.value) ?? '')).join(';')
+      const keyTimes = kf.map(k => String(k.offset)).join(';')
 
       const attrs: Record<string, string | number> = {
         attributeName: svgAttr,
@@ -85,7 +117,28 @@ export function renderPropertyAnimations(
       }
       animElements.push(animate(attrs))
     } else {
-      // CSS animation for geometric properties (radius, x, y, etc.)
+      // SMIL animate for geometric properties (radius → r, x → cx, y → cy)
+      const smilAttr = irToSvgAttr(key)
+      const kf = normalizeOffsets(anim.keyframes)
+      const values = kf.map(k => String(resolvePrimitive(k.value) ?? '')).join(';')
+      const keyTimes = kf.map(k => String(k.offset)).join(';')
+
+      const smilAttrs: Record<string, string | number> = {
+        attributeName: smilAttr,
+        values,
+        dur: `${anim.duration}s`,
+        repeatCount: anim.loop ? 'indefinite' : '1',
+      }
+      if (keyTimes) smilAttrs['keyTimes'] = keyTimes
+      if (anim.delay) smilAttrs['begin'] = `${anim.delay}s`
+      const splines = easingToKeySplines(anim.easing)
+      if (splines) {
+        smilAttrs['calcMode'] = 'spline'
+        smilAttrs['keySplines'] = splines
+      }
+      animElements.push(animate(smilAttrs))
+
+      // Also track for metadata
       ctx.animations.push({
         entityId,
         property: key,
@@ -99,7 +152,7 @@ export function renderPropertyAnimations(
         delay: anim.delay,
       })
 
-      // Also collect for CSS injection
+      // Also collect for CSS injection (backup)
       ctx.cssAnimations = ctx.cssAnimations ?? []
       ctx.cssAnimations.push({
         entityId,
@@ -129,8 +182,10 @@ export function renderAnimationBindings(
     const svgAttr = CSS_ANIMATABLE[target]
 
     if (svgAttr) {
-      const values = binding.keyframes.map(k => String(resolvePrimitive(k.value) ?? '')).join(';')
-      const keyTimes = binding.keyframes.map(k => String(k.offset)).join(';')
+      // SMIL animate for CSS-known properties
+      const kf = normalizeOffsets(binding.keyframes)
+      const values = kf.map(k => String(resolvePrimitive(k.value) ?? '')).join(';')
+      const keyTimes = kf.map(k => String(k.offset)).join(';')
 
       const attrs: Record<string, string | number> = {
         attributeName: svgAttr,
@@ -147,8 +202,29 @@ export function renderAnimationBindings(
       }
       animElements.push(animate(attrs))
     } else {
+      // SMIL animate for geometric properties
       const entityId = target.split('.')[0] ?? ''
-      const property = target.split('.')[1] ?? target
+      const irProp = target.split('.')[1] ?? target
+      const smilAttr = irToSvgAttr(irProp)
+
+      const kf = normalizeOffsets(binding.keyframes)
+      const values = kf.map(k => String(resolvePrimitive(k.value) ?? '')).join(';')
+      const keyTimes = kf.map(k => String(k.offset)).join(';')
+
+      const smilAttrs: Record<string, string | number> = {
+        attributeName: smilAttr,
+        values,
+        dur: `${binding.duration}s`,
+        repeatCount: binding.loop ? 'indefinite' : '1',
+      }
+      if (keyTimes) smilAttrs['keyTimes'] = keyTimes
+      if (binding.delay) smilAttrs['begin'] = `${binding.delay}s`
+      const splines = easingToKeySplines(binding.easing)
+      if (splines) {
+        smilAttrs['calcMode'] = 'spline'
+        smilAttrs['keySplines'] = splines
+      }
+      animElements.push(animate(smilAttrs))
 
       ctx.animations.push({
         entityId,
@@ -167,7 +243,7 @@ export function renderAnimationBindings(
       ctx.cssAnimations = ctx.cssAnimations ?? []
       ctx.cssAnimations.push({
         entityId,
-        property,
+        property: irProp,
         keyframes: binding.keyframes,
         duration: binding.duration,
         easing: binding.easing,
@@ -182,21 +258,33 @@ export function renderAnimationBindings(
 
 // ─── CSS Keyframe Generation ────────────────────────────────────────────────
 
+interface CssAnimEntry {
+  entityId: string
+  property: string
+  keyframes: Keyframe[]
+  duration: number
+  easing?: string
+  loop?: boolean
+  delay?: number
+}
+
 function sanitizePropertyName(prop: string): string {
   return prop.replace(/[^a-zA-Z0-9]/g, '_')
 }
 
-function buildKeyframesCSS(anim: CssAnimation): string {
+function buildKeyframesCSS(anim: CssAnimEntry): string {
   const animName = `anim_${sanitizePropertyName(anim.entityId)}_${sanitizePropertyName(anim.property)}`
+  const cssProp = CSS_GEOM_PROPERTIES[anim.property] ?? anim.property
   const dur = `${anim.duration}s`
   const timing = easingToCSS(anim.easing)
   const iterCount = anim.loop ? 'infinite' : '1'
   const delay = anim.delay ? `${anim.delay}s` : '0s'
 
-  const steps = anim.keyframes.map(k => {
+  const kf = normalizeOffsets(anim.keyframes)
+  const steps = kf.map(k => {
     const pct = Math.round(k.offset * 100)
     const val = k.value
-    return `  ${pct}% { ${anim.property}: ${val}; }`
+    return `  ${pct}% { ${cssProp}: ${val}; }`
   }).join('\n')
 
   return `@keyframes ${animName} {\n${steps}\n}\n.${animName} {\n  animation: ${animName} ${dur} ${timing} ${delay} ${iterCount} both;\n}`

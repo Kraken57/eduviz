@@ -10,15 +10,17 @@ export type ExprVars = Record<string, number>
 
 export type ASTNode =
   | { type: 'number'; value: number }
+  | { type: 'string'; value: string }
   | { type: 'variable'; name: string }
   | { type: 'binary'; op: string; left: ASTNode; right: ASTNode }
+  | { type: 'ternary'; condition: ASTNode; thenExpr: ASTNode; elseExpr: ASTNode }
   | { type: 'unary'; op: string; expr: ASTNode }
   | { type: 'call'; name: string; args: ASTNode[] }
 
 // ─── Tokenizer ──────────────────────────────────────────────────────────────
 
 interface Token {
-  type: 'number' | 'ident' | 'op' | 'lparen' | 'rparen' | 'comma' | 'eof'
+  type: 'number' | 'string' | 'ident' | 'op' | 'lparen' | 'rparen' | 'comma' | 'eof'
   value: string
 }
 
@@ -31,6 +33,28 @@ function tokenize(input: string): Token[] {
 
     if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
       i++
+      continue
+    }
+
+    if (ch === `"` || ch === `'`) {
+      const quote = ch
+      i++
+      let str = ''
+      while (i < input.length && input[i] !== quote) {
+        if (input[i] === '\\' && i + 1 < input.length) {
+          const next = input[i + 1]
+          if (next === 'n') { str += '\n'; i += 2; continue }
+          if (next === 't') { str += '\t'; i += 2; continue }
+          if (next === '\\' || next === quote) { str += next; i += 2; continue }
+        }
+        str += input[i]
+        i++
+      }
+      if (i >= input.length) {
+        throw new Error(`Unterminated string literal starting at position ${i}`)
+      }
+      i++ // skip closing quote
+      tokens.push({ type: 'string', value: str })
       continue
     }
 
@@ -81,7 +105,7 @@ function tokenize(input: string): Token[] {
     }
 
     if (ch === '+' || ch === '-' || ch === '*' || ch === '/' || ch === '%' ||
-        ch === '<' || ch === '>' || ch === '!') {
+        ch === '<' || ch === '>' || ch === '!' || ch === '?' || ch === ':') {
       tokens.push({ type: 'op', value: ch }); i++; continue
     }
 
@@ -122,7 +146,22 @@ class Parser {
   }
 
   parse(): ASTNode {
-    return this.parseOr()
+    return this.parseTernary()
+  }
+
+  private parseTernary(): ASTNode {
+    const condition = this.parseOr()
+    if (this.peek().type === 'op' && this.peek().value === '?') {
+      this.advance()
+      const thenExpr = this.parseTernary()
+      if (this.peek().type !== 'op' || this.peek().value !== ':') {
+        throw new Error('Expected : in ternary expression')
+      }
+      this.advance()
+      const elseExpr = this.parseTernary()
+      return { type: 'ternary', condition, thenExpr, elseExpr }
+    }
+    return condition
   }
 
   private parseOr(): ASTNode {
@@ -209,6 +248,11 @@ class Parser {
       return { type: 'number', value: parseFloat(tok.value) }
     }
 
+    if (tok.type === 'string') {
+      this.advance()
+      return { type: 'string', value: tok.value }
+    }
+
     if (tok.type === 'lparen') {
       this.advance()
       const expr = this.parse()
@@ -283,9 +327,14 @@ function callMathFn(name: string, args: number[]): number {
 
 // ─── AST Evaluator (tree-walking, no eval) ──────────────────────────────────
 
-function evaluateAST(node: ASTNode, vars: ExprVars): number {
+type EvalResult = number | string
+
+function evaluateAST(node: ASTNode, vars: ExprVars): EvalResult {
   switch (node.type) {
     case 'number':
+      return node.value
+
+    case 'string':
       return node.value
 
     case 'variable':
@@ -293,24 +342,44 @@ function evaluateAST(node: ASTNode, vars: ExprVars): number {
 
     case 'unary': {
       const val = evaluateAST(node.expr, vars)
+      if (typeof val === 'string') throw new Error(`Cannot apply unary operator to string`)
       return node.op === '-' ? -val : (val ? 0 : 1)
+    }
+
+    case 'ternary': {
+      const condition = evaluateAST(node.condition, vars)
+      return condition ? evaluateAST(node.thenExpr, vars) : evaluateAST(node.elseExpr, vars)
     }
 
     case 'binary': {
       const left = evaluateAST(node.left, vars)
       const right = evaluateAST(node.right, vars)
       switch (node.op) {
-        case '+': return left + right
-        case '-': return left - right
-        case '*': return left * right
-        case '/': return right !== 0 ? left / right : NaN
-        case '%': return right !== 0 ? left % right : NaN
-        case '<': return left < right ? 1 : 0
-        case '>': return left > right ? 1 : 0
-        case '<=': return left <= right ? 1 : 0
-        case '>=': return left >= right ? 1 : 0
-        case '==': return left === right ? 1 : 0
-        case '!=': return left !== right ? 1 : 0
+        case '+':
+          if (typeof left === 'string' || typeof right === 'string') return String(left) + String(right)
+          return left + right
+        case '-': return (left as number) - (right as number)
+        case '*': return (left as number) * (right as number)
+        case '/': return (right as number) !== 0 ? (left as number) / (right as number) : NaN
+        case '%': return (right as number) !== 0 ? (left as number) % (right as number) : NaN
+        case '<':
+        case '>':
+        case '<=':
+        case '>=':
+        case '==':
+        case '!=': {
+          const lc = left === right
+          let cmp: boolean
+          if (node.op === '==') cmp = lc
+          else if (node.op === '!=') cmp = !lc
+          else {
+            cmp = left < right
+            if (node.op === '>') cmp = left > right
+            else if (node.op === '<=') cmp = left <= right
+            else if (node.op === '>=') cmp = left >= right
+          }
+          return cmp ? 1 : 0
+        }
         case '&&': return (left && right) ? 1 : 0
         case '||': return (left || right) ? 1 : 0
         default: throw new Error(`Unknown operator: ${node.op}`)
@@ -319,7 +388,7 @@ function evaluateAST(node: ASTNode, vars: ExprVars): number {
 
     case 'call': {
       const args = node.args.map(a => evaluateAST(a, vars))
-      return callMathFn(node.name, args)
+      return callMathFn(node.name, args.map(a => (typeof a === 'number' ? a : 0)))
     }
   }
 }
@@ -330,7 +399,7 @@ export function parseExpression(expr: string): ASTNode {
   return new Parser(tokenize(expr)).parse()
 }
 
-export function evaluateExpression(expr: string, vars: ExprVars): number {
+export function evaluateExpression(expr: string, vars: ExprVars): number | string {
   const ast = parseExpression(expr)
   return evaluateAST(ast, vars)
 }

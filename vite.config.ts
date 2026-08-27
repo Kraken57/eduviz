@@ -8,6 +8,11 @@ const root = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   root: path.join(root, 'src/playground'),
+  resolve: {
+    alias: [
+      { find: /^three$/, replacement: path.join(root, 'node_modules/three/build/three.module.js') },
+    ],
+  },
   server: {
     port: 5173,
     open: true,

@@ -571,7 +571,8 @@ describe('animations', () => {
     }
     const ctx = makeCtx()
     const svgs = renderPropertyAnimations('e1', props, ctx)
-    assert.equal(svgs.length, 0)
+    assert.equal(svgs.length, 1, 'should produce SMIL animate for radius→r')
+    assert.ok(svgs[0].includes('attributeName="r"'))
     assert.equal(ctx.animations.length, 1)
     assert.equal(ctx.animations[0].entityId, 'e1')
     assert.equal(ctx.animations[0].property, 'radius')

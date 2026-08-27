@@ -1,7 +1,7 @@
 import type {
   AnimationBinding,
-  PropertyAnim,
   PropertyBag,
+  Prop,
 } from '../../ir/types.js'
 
 // ─── Three.js Lazy Import ─────────────────────────────────────────────────
@@ -21,7 +21,7 @@ function getThree(): ThreeModule {
   return _three
 }
 
-// ─── Property Animation ───────────────────────────────────────────────────
+// ─── Property → Three.js Path Map ──────────────────────────────────────────
 
 const PROPERTY_MAP: Record<string, string> = {
   x: 'position.x',
@@ -40,7 +40,7 @@ function resolveThreeProperty(irProp: string): string | null {
   return PROPERTY_MAP[irProp] ?? null
 }
 
-// ─── Keyframes to Three.js KeyframeTrack ──────────────────────────────────
+// ─── Scene-level AnimationBinding → KeyframeTrack ──────────────────────────
 
 export function createKeyframeTracks(
   binding: AnimationBinding,
@@ -62,7 +62,7 @@ export function createKeyframeTracks(
   const values: number[] = []
 
   for (const kf of binding.keyframes) {
-    times.push(kf.offset * (binding.duration / 1000))
+    times.push(kf.offset * binding.duration)
     const v = typeof kf.value === 'number' ? kf.value : 0
     values.push(v)
   }
@@ -71,34 +71,79 @@ export function createKeyframeTracks(
   return [new THREE.NumberKeyframeTrack(trackName, times, values)]
 }
 
-// ─── Property Anim to Keyframe Track ──────────────────────────────────────
+// ─── Per-entity PropertyAnim → KeyframeTrack ───────────────────────────────
 
 export function createPropertyAnimTracks(
   entityId: string,
-  _props: PropertyBag,
-  anim: PropertyAnim,
-  _objectMap: Map<string, InstanceType<ThreeModule['Object3D']>>,
+  properties: PropertyBag,
+  objectMap: Map<string, InstanceType<ThreeModule['Object3D']>>,
 ): InstanceType<ThreeModule['KeyframeTrack']>[] {
   const THREE = getThree()
-  const threeProp = resolveThreeProperty(entityId)
-  if (!threeProp) return []
+  const object = objectMap.get(entityId)
+  if (!object) return []
 
-  const times: number[] = []
-  const values: number[] = []
+  const tracks: InstanceType<ThreeModule['KeyframeTrack']>[] = []
 
-  for (const kf of anim.keyframes) {
-    times.push(kf.offset * (anim.duration / 1000))
-    const v = typeof kf.value === 'number' ? kf.value : 0
-    values.push(v)
+  for (const [key, prop] of Object.entries(properties)) {
+    if (prop === null || typeof prop !== 'object' || !('anim' in prop)) continue
+    const propObj = prop as Prop
+    const anim = propObj.anim
+    if (!anim) continue
+
+    const threeProp = resolveThreeProperty(key)
+    if (!threeProp) continue
+
+    const times: number[] = []
+    const values: number[] = []
+
+    for (const kf of anim.keyframes) {
+      times.push(kf.offset * anim.duration)
+      const v = typeof kf.value === 'number' ? kf.value : 0
+      values.push(v)
+    }
+
+    if (times.length === 0) continue
+
+    const trackName = `${entityId}.${threeProp}`
+    const track = new THREE.NumberKeyframeTrack(trackName, times, values)
+    tracks.push(track)
   }
 
-  if (times.length === 0) return []
-
-  const trackName = `${entityId}.${threeProp}`
-  return [new THREE.NumberKeyframeTrack(trackName, times, values)]
+  return tracks
 }
 
-// ─── Scene Animations ─────────────────────────────────────────────────────
+// ─── Collect all entity animations → AnimationClip[] ───────────────────────
+
+export function createEntityAnimations(
+  entities: Array<{ id: string; properties: PropertyBag }>,
+  objectMap: Map<string, InstanceType<ThreeModule['Object3D']>>,
+): InstanceType<ThreeModule['AnimationClip']>[] {
+  const THREE = getThree()
+  const clips: InstanceType<ThreeModule['AnimationClip']>[] = []
+
+  for (let i = 0; i < entities.length; i++) {
+    const entity = entities[i]!
+    const tracks = createPropertyAnimTracks(entity.id, entity.properties, objectMap)
+    if (tracks.length > 0) {
+      const maxDuration = Math.max(
+        ...tracks.map(t => {
+          const times = t.times
+          return times.length > 0 ? times[times.length - 1] : 0
+        }),
+      )
+      const clip = new THREE.AnimationClip(
+        `entity-${entity.id}`,
+        maxDuration || 1,
+        tracks,
+      )
+      clips.push(clip)
+    }
+  }
+
+  return clips
+}
+
+// ─── Scene Animations (AnimationBinding[]) ─────────────────────────────────
 
 export function createSceneAnimations(
   animations: AnimationBinding[],
@@ -111,7 +156,7 @@ export function createSceneAnimations(
     const binding = animations[i]!
     const tracks = createKeyframeTracks(binding, objectMap)
     if (tracks.length > 0) {
-      const duration = binding.duration / 1000
+      const duration = binding.duration
       const clip = new THREE.AnimationClip(
         `animation-${i}`,
         duration,

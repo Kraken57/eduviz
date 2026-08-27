@@ -581,6 +581,8 @@ describe('animations', () => {
     const mod = await import('./animations.js')
     assert.equal(typeof mod.createSceneAnimations, 'function')
     assert.equal(typeof mod.createKeyframeTracks, 'function')
+    assert.equal(typeof mod.createEntityAnimations, 'function')
+    assert.equal(typeof mod.createPropertyAnimTracks, 'function')
   })
 })
 

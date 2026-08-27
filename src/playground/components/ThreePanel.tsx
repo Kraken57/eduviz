@@ -9,12 +9,14 @@ interface Props {
 export function ThreePanel({ threeOutput, error }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
+  const rafRef = useRef<number>(0)
 
   useEffect(() => {
     if (cleanupRef.current) {
       cleanupRef.current()
       cleanupRef.current = null
     }
+    cancelAnimationFrame(rafRef.current)
 
     if (!containerRef.current || !threeOutput) return
 
@@ -25,7 +27,27 @@ export function ThreePanel({ threeOutput, error }: Props) {
     threeOutput.canvas.style.height = '100%'
     threeOutput.canvas.style.display = 'block'
 
+    // Animation loop
+    const mixer = threeOutput.animationMixer
+    const renderer = threeOutput.renderer
+    const scene = threeOutput.scene
+    const camera = threeOutput.camera
+
+    let lastTime = performance.now()
+    const animate = (now: number) => {
+      const delta = (now - lastTime) / 1000
+      lastTime = now
+
+      if (mixer) {
+        mixer.update(delta)
+      }
+      renderer.render(scene, camera)
+      rafRef.current = requestAnimationFrame(animate)
+    }
+    rafRef.current = requestAnimationFrame(animate)
+
     cleanupRef.current = () => {
+      cancelAnimationFrame(rafRef.current)
       while (container.firstChild) {
         container.removeChild(container.firstChild)
       }
@@ -66,6 +88,9 @@ export function ThreePanel({ threeOutput, error }: Props) {
           <span>Entities: {Object.keys(threeOutput.entityMap).length}</span>
           {threeOutput.warnings.length > 0 && (
             <span>Warnings: {threeOutput.warnings.length}</span>
+          )}
+          {threeOutput.animationMixer && (
+            <span style={{ color: '#4caf50' }}>● Animating</span>
           )}
         </div>
       </div>

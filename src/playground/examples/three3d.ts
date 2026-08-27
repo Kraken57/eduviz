@@ -168,6 +168,67 @@ export const towerOfShapes3D: Scene = {
   ],
 }
 
+// ─── 3D Example 6: Animated Rotating Shapes ───────────────────────────────
+
+export const rotatingShapes3D: Scene = {
+  meta: {
+    version: '1.0',
+    title: 'Rotating Shapes',
+    description: 'A spinning cube, orbiting sphere, and pulsing torus demonstrating 3D animations.',
+    tags: ['3d', 'animation', 'rotation'],
+  },
+  viewport: {
+    width: 800,
+    height: 600,
+    background: '#0d1117',
+    camera: {
+      position: { x: 5, y: 4, z: 8 },
+      target: { x: 0, y: 1, z: 0 },
+      projection: 'perspective',
+      fov: 50,
+    },
+  },
+  entities: [
+    {
+      id: 'spinning-cube', type: 'shape',
+      properties: {
+        shape: 'box', width: 1.5, height: 1.5, depth: 1.5,
+        x: -2.5, y: 1, z: 0, fill: '#3498db',
+        rotationY: { value: 0, anim: { keyframes: [{ offset: 0, value: 0 }, { offset: 1, value: 6.283 }], duration: 4, loop: true } },
+      },
+    },
+    {
+      id: 'orbiting-sphere', type: 'shape',
+      properties: {
+        shape: 'sphere', radius: 0.4,
+        x: { value: 3, anim: { keyframes: [{ offset: 0, value: 3 }, { offset: 0.25, value: 0 }, { offset: 0.5, value: -3 }, { offset: 0.75, value: 0 }, { offset: 1, value: 3 }], duration: 6, loop: true } },
+        z: { value: 0, anim: { keyframes: [{ offset: 0, value: 0 }, { offset: 0.25, value: 3 }, { offset: 0.5, value: 0 }, { offset: 0.75, value: -3 }, { offset: 1, value: 0 }], duration: 6, loop: true } },
+        y: 1, fill: '#e74c3c',
+      },
+    },
+    {
+      id: 'pulsing-torus', type: 'shape',
+      properties: {
+        shape: 'torus', radius: 0.8, tube: 0.15,
+        x: 0, y: 1, z: 0, fill: '#f39c12',
+        scaleX: { value: 1, anim: { keyframes: [{ offset: 0, value: 0.8 }, { offset: 0.5, value: 1.3 }, { offset: 1, value: 0.8 }], duration: 2, loop: true } },
+        scaleY: { value: 1, anim: { keyframes: [{ offset: 0, value: 0.8 }, { offset: 0.5, value: 1.3 }, { offset: 1, value: 0.8 }], duration: 2, loop: true } },
+        scaleZ: { value: 1, anim: { keyframes: [{ offset: 0, value: 0.8 }, { offset: 0.5, value: 1.3 }, { offset: 1, value: 0.8 }], duration: 2, loop: true } },
+      },
+    },
+    { id: 'ground', type: 'shape', properties: { shape: 'plane', width: 12, height: 12, x: 0, y: -0.01, z: 0, rotationX: -1.5708, fill: '#1a1a2e', opacity: 0.5 } },
+    { id: 'title', type: 'text', properties: { text: '3D Animations', x: 0, y: 3.5, z: 0, fontSize: 0.7, fill: '#ecf0f1' } },
+  ],
+  animations: [
+    {
+      target: 'spinning-cube.rotationY',
+      keyframes: [{ offset: 0, value: 0 }, { offset: 1, value: 6.283 }],
+      duration: 4,
+      loop: true,
+    },
+  ],
+}
+
 // ─── 3D Examples Array ────────────────────────────────────────────────────
 
 export const examples3D: Scene[] = [
@@ -176,4 +237,5 @@ export const examples3D: Scene[] = [
   molecule3D,
   coordinateSystem3D,
   towerOfShapes3D,
+  rotatingShapes3D,
 ]

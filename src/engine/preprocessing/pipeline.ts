@@ -268,7 +268,13 @@ function expandGenerators(
       continue
     }
 
-    const generator = generatorProp as unknown as GeneratorDef
+    // Unwrap the Prop wrapper ({ value: {...} })
+    let generator = generatorProp as unknown as GeneratorDef
+    const wrapper = generatorProp as unknown as { value?: unknown }
+    if (wrapper && typeof wrapper.value === 'object' && !Array.isArray(wrapper.value) && wrapper.value !== null) {
+      generator = wrapper.value as unknown as GeneratorDef
+    }
+
     if (!('type' in generator)) {
       expanded.push(entity)
       continue
@@ -285,10 +291,27 @@ function expandGenerators(
       continue
     }
 
-    expanded.push(...result.entities)
-    totalEntities += result.entities.length
+    // Merge non-generator "extras" properties (e.g. fill) into each generated child
+    const childEntities = result.entities.map(child => ({
+      ...child,
+      properties: {
+        ...child.properties,
+        ...propertiesWithoutGenerator(entity.properties),
+      },
+    }))
 
-    for (const childEntity of result.entities) {
+    // Keep the generator stub as a group container so containment relationships resolve
+    const container: Entity = {
+      id: entity.id,
+      type: 'group',
+      name: entity.name,
+      properties: propertiesWithoutGenerator(entity.properties),
+    }
+    expanded.push(container)
+    expanded.push(...childEntities)
+    totalEntities += childEntities.length
+
+    for (const childEntity of childEntities) {
       newRelationships.push({
         type: 'containment',
         from: entity.id,
@@ -302,6 +325,18 @@ function expandGenerators(
     relationships: [...relationships, ...newRelationships],
     errors,
   }
+}
+
+// ─── Extract non-generator properties (extras) from a generator entity ──────
+
+function propertiesWithoutGenerator(properties: PropertyBag): PropertyBag {
+  const result: PropertyBag = {}
+  for (const [key, value] of Object.entries(properties)) {
+    if (key !== 'generator') {
+      result[key] = value
+    }
+  }
+  return result
 }
 
 // ─── Preprocessing Pipeline ─────────────────────────────────────────────────

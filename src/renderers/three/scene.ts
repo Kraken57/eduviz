@@ -8,6 +8,7 @@ import { createFallbackObject } from './fallback.js'
 import { createPolylineGeometry, createPolylineMaterial, createPointCloudGeometry, createPointCloudMaterial, setThreeModule as setDataThree } from './data.js'
 import { createEdgeLine, setThreeModule as setConnectionsThree } from './connections.js'
 import { setThreeModule as setFallbackThree } from './fallback.js'
+import { setThreeModule as setAnimationsThree } from './animations.js'
 
 // ─── Three.js Lazy Import ─────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ export function setThreeModule(three: ThreeModule): void {
   setDataThree(three)
   setConnectionsThree(three)
   setFallbackThree(three)
+  setAnimationsThree(three)
 }
 
 function getThree(): ThreeModule {

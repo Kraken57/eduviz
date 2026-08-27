@@ -160,7 +160,7 @@ function expandParametric(
       const vars: ExprVars = { t, seed: generator.seed ?? 0 }
       const x = evaluateExpression(generator.xExpr, vars)
       const y = evaluateExpression(generator.yExpr, vars)
-      points.push({ x, y })
+      points.push({ x: x as number, y: y as number })
     }
 
     const resolved = resolvePropertyBag(template, {})
@@ -246,7 +246,7 @@ function expandSeries(
       const vars: ExprVars = { i, value, seed: generator.seed ?? 0 }
       const x = evaluateExpression(generator.xExpr, vars)
       const y = evaluateExpression(generator.yExpr, vars)
-      points.push({ x, y })
+      points.push({ x: x as number, y: y as number })
     }
 
     const resolved = resolvePropertyBag(template, {})

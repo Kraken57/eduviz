@@ -67,6 +67,28 @@ describe('Expression Evaluator', () => {
     })
   })
 
+  describe('string literals', () => {
+    it('evaluates a double-quoted string', () => {
+      assert.equal(evaluateExpression('"hello"', {}), 'hello')
+    })
+
+    it('evaluates a single-quoted string', () => {
+      assert.equal(evaluateExpression(`'world'`, {}), 'world')
+    })
+
+    it('evaluates string equality', () => {
+      assert.equal(evaluateExpression('"red" == "red"', {}), 1)
+    })
+
+    it('evaluates string inequality', () => {
+      assert.equal(evaluateExpression('"red" != "blue"', {}), 1)
+    })
+
+    it('uses strings in conditional expression', () => {
+      assert.equal(evaluateExpression('3 > 2 ? "#3498DB" : "#E74C3C"', {}), '#3498DB')
+    })
+  })
+
   describe('logic', () => {
     it('evaluates logical AND', () => {
       assert.equal(evaluateExpression('true && true', {}), 1)
@@ -83,11 +105,11 @@ describe('Expression Evaluator', () => {
 
   describe('math functions', () => {
     it('evaluates sin', () => {
-      assert.ok(Math.abs(evaluateExpression('sin(0)', {}) - 0) < 0.0001)
+      assert.ok(Math.abs((evaluateExpression('sin(0)', {}) as number) - 0) < 0.0001)
     })
 
     it('evaluates cos', () => {
-      assert.ok(Math.abs(evaluateExpression('cos(0)', {}) - 1) < 0.0001)
+      assert.ok(Math.abs((evaluateExpression('cos(0)', {}) as number) - 1) < 0.0001)
     })
 
     it('evaluates sqrt', () => {
@@ -121,11 +143,11 @@ describe('Expression Evaluator', () => {
 
   describe('constants', () => {
     it('evaluates pi', () => {
-      assert.ok(Math.abs(evaluateExpression('pi', {}) - Math.PI) < 0.0001)
+      assert.ok(Math.abs((evaluateExpression('pi', {}) as number) - Math.PI) < 0.0001)
     })
 
     it('evaluates e', () => {
-      assert.ok(Math.abs(evaluateExpression('e', {}) - Math.E) < 0.0001)
+      assert.ok(Math.abs((evaluateExpression('e', {}) as number) - Math.E) < 0.0001)
     })
   })
 

@@ -1,5 +1,5 @@
 import type { Scene } from '../../ir/types.js'
-import type * as THREE from 'three'
+import * as THREE from 'three'
 import type {
   Renderer,
   RendererCapabilities,
@@ -14,14 +14,10 @@ import { validateScene } from '../../ir/validate.js'
 import { resolveCameraConfig, validateCameraConfig } from './camera.js'
 import { resolveLightingConfig, validateLightingConfig } from './lighting.js'
 import { setThreeModule, buildThreeScene, clearMaterialCache } from './scene.js'
-import { createSceneAnimations } from './animations.js'
+import { createSceneAnimations, createEntityAnimations } from './animations.js'
 import { buildThreeOutput } from './output.js'
 
-// ─── Three.js Lazy Import ─────────────────────────────────────────────────
-
 type ThreeModule = typeof import('three')
-
-// ─── Three.js Renderer ────────────────────────────────────────────────────
 
 export class ThreeRenderer implements Renderer {
   readonly info = {
@@ -38,20 +34,11 @@ export class ThreeRenderer implements Renderer {
   }
 
   private initialized = false
-  private THREE: ThreeModule | null = null
 
   async initialize(): Promise<void> {
     if (this.initialized) return
-    try {
-      const three = await import('three')
-      this.THREE = three
-      setThreeModule(three)
-      this.initialized = true
-    } catch {
-      throw new Error(
-        'Three.js is not installed. Run: npm install three @types/three',
-      )
-    }
+    setThreeModule(THREE as ThreeModule)
+    this.initialized = true
   }
 
   canRender(_scene: Scene, requirements?: SceneRequirements): boolean {
@@ -100,11 +87,10 @@ export class ThreeRenderer implements Renderer {
       }
     }
 
-    if (!this.initialized || !this.THREE) {
+    if (!this.initialized) {
       await this.initialize()
     }
 
-    const THREE = this.THREE!
     const cameraConfig = resolveCameraConfig(
       scene.viewport?.camera,
       context.request.options as Record<string, unknown> | undefined,
@@ -138,6 +124,7 @@ export class ThreeRenderer implements Renderer {
     threeScene.add(hemiLight)
 
     let animationMixer: THREE.AnimationMixer | undefined
+
     if (scene.animations && scene.animations.length > 0) {
       const clips = createSceneAnimations(scene.animations, objectMap)
       if (clips.length > 0) {
@@ -145,6 +132,16 @@ export class ThreeRenderer implements Renderer {
         for (const clip of clips) {
           animationMixer.clipAction(clip).play()
         }
+      }
+    }
+
+    const entityClips = createEntityAnimations(scene.entities, objectMap)
+    if (entityClips.length > 0) {
+      if (!animationMixer) {
+        animationMixer = new THREE.AnimationMixer(threeScene)
+      }
+      for (const clip of entityClips) {
+        animationMixer.clipAction(clip).play()
       }
     }
 
@@ -199,14 +196,12 @@ export class ThreeRenderer implements Renderer {
   async dispose(): Promise<void> {
     clearMaterialCache()
     this.initialized = false
-    this.THREE = null
   }
 
   private createCamera(
     config: { projection: string; fov: number; near: number; far: number; position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number }; zoom: number },
     scene: Scene,
   ): THREE.Camera {
-    const THREE = this.THREE!
     const width = scene.viewport?.width ?? 800
     const height = scene.viewport?.height ?? 600
     const aspect = width / height
