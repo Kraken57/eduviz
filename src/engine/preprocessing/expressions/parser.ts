@@ -1,16 +1,26 @@
 // ─── Safe Expression Evaluator ──────────────────────────────────────────────
-// Recursive descent parser. No eval(), no new Function().
+// Recursive descent parser → AST → tree-walking evaluator.
+// No eval(), no new Function().
 // Supports arithmetic, comparisons, logic, math functions, constants, seeded random.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ExprVars = Record<string, number>
 
+// ─── AST ────────────────────────────────────────────────────────────────────
+
+export type ASTNode =
+  | { type: 'number'; value: number }
+  | { type: 'variable'; name: string }
+  | { type: 'binary'; op: string; left: ASTNode; right: ASTNode }
+  | { type: 'unary'; op: string; expr: ASTNode }
+  | { type: 'call'; name: string; args: ASTNode[] }
+
+// ─── Tokenizer ──────────────────────────────────────────────────────────────
+
 interface Token {
   type: 'number' | 'ident' | 'op' | 'lparen' | 'rparen' | 'comma' | 'eof'
   value: string
 }
-
-// ─── Tokenizer ──────────────────────────────────────────────────────────────
 
 function tokenize(input: string): Token[] {
   const tokens: Token[] = []
@@ -82,7 +92,7 @@ function tokenize(input: string): Token[] {
   return tokens
 }
 
-// ─── Parser ─────────────────────────────────────────────────────────────────
+// ─── Parser (produces AST) ─────────────────────────────────────────────────
 
 class Parser {
   private tokens: Token[]
@@ -111,99 +121,99 @@ class Parser {
     return this.advance()
   }
 
-  parse(): string {
+  parse(): ASTNode {
     return this.parseOr()
   }
 
-  private parseOr(): string {
+  private parseOr(): ASTNode {
     let left = this.parseAnd()
     while (this.peek().type === 'op' && this.peek().value === '||') {
       this.advance()
       const right = this.parseAnd()
-      left = `(${left} || ${right})`
+      left = { type: 'binary', op: '||', left, right }
     }
     return left
   }
 
-  private parseAnd(): string {
+  private parseAnd(): ASTNode {
     let left = this.parseComparison()
     while (this.peek().type === 'op' && this.peek().value === '&&') {
       this.advance()
       const right = this.parseComparison()
-      left = `(${left} && ${right})`
+      left = { type: 'binary', op: '&&', left, right }
     }
     return left
   }
 
-  private parseComparison(): string {
+  private parseComparison(): ASTNode {
     let left = this.parseAddSub()
     while (this.peek().type === 'op' &&
            ['<', '>', '<=', '>=', '==', '!='].includes(this.peek().value)) {
       const op = this.advance().value
       const right = this.parseAddSub()
-      left = `(${left} ${op} ${right})`
+      left = { type: 'binary', op, left, right }
     }
     return left
   }
 
-  private parseAddSub(): string {
+  private parseAddSub(): ASTNode {
     let left = this.parseMulDiv()
     while (this.peek().type === 'op' && (this.peek().value === '+' || this.peek().value === '-')) {
       const op = this.advance().value
       const right = this.parseMulDiv()
-      left = `(${left} ${op} ${right})`
+      left = { type: 'binary', op, left, right }
     }
     return left
   }
 
-  private parseMulDiv(): string {
+  private parseMulDiv(): ASTNode {
     let left = this.parsePower()
     while (this.peek().type === 'op' &&
            (this.peek().value === '*' || this.peek().value === '/' || this.peek().value === '%')) {
       const op = this.advance().value
       const right = this.parsePower()
-      left = `(${left} ${op} ${right})`
+      left = { type: 'binary', op, left, right }
     }
     return left
   }
 
-  private parsePower(): string {
+  private parsePower(): ASTNode {
     let base = this.parseUnary()
     if (this.peek().type === 'op' && this.peek().value === '**') {
       this.advance()
       const exp = this.parseUnary()
-      base = `Math.pow(${base}, ${exp})`
+      base = { type: 'call', name: 'pow', args: [base, exp] }
     }
     return base
   }
 
-  private parseUnary(): string {
+  private parseUnary(): ASTNode {
     if (this.peek().type === 'op' && this.peek().value === '-') {
       this.advance()
       const operand = this.parsePrimary()
-      return `(-${operand})`
+      return { type: 'unary', op: '-', expr: operand }
     }
     if (this.peek().type === 'op' && this.peek().value === '!') {
       this.advance()
       const operand = this.parsePrimary()
-      return `(!${operand})`
+      return { type: 'unary', op: '!', expr: operand }
     }
     return this.parsePrimary()
   }
 
-  private parsePrimary(): string {
+  private parsePrimary(): ASTNode {
     const tok = this.peek()
 
     if (tok.type === 'number') {
       this.advance()
-      return tok.value
+      return { type: 'number', value: parseFloat(tok.value) }
     }
 
     if (tok.type === 'lparen') {
       this.advance()
       const expr = this.parse()
       this.expect('rparen')
-      return `(${expr})`
+      return expr
     }
 
     if (tok.type === 'ident') {
@@ -212,7 +222,7 @@ class Parser {
 
       if (this.peek().type === 'lparen') {
         this.advance()
-        const args: string[] = []
+        const args: ASTNode[] = []
         if (this.peek().type !== 'rparen') {
           args.push(this.parse())
           while (this.peek().type === 'comma') {
@@ -221,34 +231,17 @@ class Parser {
           }
         }
         this.expect('rparen')
-        return this.buildFunctionCall(name, args)
+        return { type: 'call', name, args }
       }
 
-      if (name === 'pi') return 'Math.PI'
-      if (name === 'e') return 'Math.E'
-      if (name === 'true') return 'true'
-      if (name === 'false') return 'false'
-      return name
+      if (name === 'pi') return { type: 'number', value: Math.PI }
+      if (name === 'e') return { type: 'number', value: Math.E }
+      if (name === 'true') return { type: 'number', value: 1 }
+      if (name === 'false') return { type: 'number', value: 0 }
+      return { type: 'variable', name }
     }
 
     throw new Error(`Unexpected token: ${tok.type} ('${tok.value}')`)
-  }
-
-  private buildFunctionCall(name: string, args: string[]): string {
-    switch (name) {
-      case 'sin': return `Math.sin(${args.join(', ')})`
-      case 'cos': return `Math.cos(${args.join(', ')})`
-      case 'tan': return `Math.tan(${args.join(', ')})`
-      case 'sqrt': return `Math.sqrt(${args.join(', ')})`
-      case 'abs': return `Math.abs(${args.join(', ')})`
-      case 'min': return `Math.min(${args.join(', ')})`
-      case 'max': return `Math.max(${args.join(', ')})`
-      case 'floor': return `Math.floor(${args.join(', ')})`
-      case 'ceil': return `Math.ceil(${args.join(', ')})`
-      case 'round': return `Math.round(${args.join(', ')})`
-      case 'seededRandom': return `__seededRandom(${args.join(', ')})`
-      default: throw new Error(`Unknown function: ${name}`)
-    }
   }
 }
 
@@ -268,20 +261,76 @@ export function seededRandom(namespace: string, index: number, seed: number): nu
   return (hash & 0x7fffffff) / 0x7fffffff
 }
 
-// ─── Evaluator ──────────────────────────────────────────────────────────────
+// ─── Math Functions ─────────────────────────────────────────────────────────
+
+function callMathFn(name: string, args: number[]): number {
+  switch (name) {
+    case 'sin': return Math.sin(args[0])
+    case 'cos': return Math.cos(args[0])
+    case 'tan': return Math.tan(args[0])
+    case 'sqrt': return Math.sqrt(args[0])
+    case 'abs': return Math.abs(args[0])
+    case 'pow': return Math.pow(args[0], args[1])
+    case 'min': return Math.min(...args)
+    case 'max': return Math.max(...args)
+    case 'floor': return Math.floor(args[0])
+    case 'ceil': return Math.ceil(args[0])
+    case 'round': return Math.round(args[0])
+    case 'seededRandom': return seededRandom(String(args[0] ?? ''), args[1] ?? 0, args[2] ?? 0)
+    default: throw new Error(`Unknown function: ${name}`)
+  }
+}
+
+// ─── AST Evaluator (tree-walking, no eval) ──────────────────────────────────
+
+function evaluateAST(node: ASTNode, vars: ExprVars): number {
+  switch (node.type) {
+    case 'number':
+      return node.value
+
+    case 'variable':
+      return vars[node.name] ?? 0
+
+    case 'unary': {
+      const val = evaluateAST(node.expr, vars)
+      return node.op === '-' ? -val : (val ? 0 : 1)
+    }
+
+    case 'binary': {
+      const left = evaluateAST(node.left, vars)
+      const right = evaluateAST(node.right, vars)
+      switch (node.op) {
+        case '+': return left + right
+        case '-': return left - right
+        case '*': return left * right
+        case '/': return right !== 0 ? left / right : NaN
+        case '%': return right !== 0 ? left % right : NaN
+        case '<': return left < right ? 1 : 0
+        case '>': return left > right ? 1 : 0
+        case '<=': return left <= right ? 1 : 0
+        case '>=': return left >= right ? 1 : 0
+        case '==': return left === right ? 1 : 0
+        case '!=': return left !== right ? 1 : 0
+        case '&&': return (left && right) ? 1 : 0
+        case '||': return (left || right) ? 1 : 0
+        default: throw new Error(`Unknown operator: ${node.op}`)
+      }
+    }
+
+    case 'call': {
+      const args = node.args.map(a => evaluateAST(a, vars))
+      return callMathFn(node.name, args)
+    }
+  }
+}
+
+// ─── Public API ─────────────────────────────────────────────────────────────
+
+export function parseExpression(expr: string): ASTNode {
+  return new Parser(tokenize(expr)).parse()
+}
 
 export function evaluateExpression(expr: string, vars: ExprVars): number {
-  const parser = new Parser(tokenize(expr))
-  const jsExpr = parser.parse()
-
-  const varNames = Object.keys(vars)
-  const varValues = varNames.map(n => vars[n])
-
-  const fn = new Function(
-    ...varNames,
-    '__seededRandom',
-    `"use strict"; return (${jsExpr});`
-  )
-
-  return fn(...varValues, seededRandom) as number
+  const ast = parseExpression(expr)
+  return evaluateAST(ast, vars)
 }

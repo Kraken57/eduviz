@@ -4,6 +4,7 @@ import type {
   RelationshipType,
   Scene,
 } from '../../ir/types.js'
+import { getDimensionFeature } from './detectDimension.js'
 
 // ─── Requirements Extraction ────────────────────────────────────────────────
 
@@ -17,6 +18,9 @@ export function extractSceneRequirements(scene: Scene): SceneRequirements {
   const entityTypes = new Set<EntityType>(scene.entities.map((e) => e.type))
   const relationshipTypes = new Set<RelationshipType>()
   const featureSet = new Set<Capability>()
+
+  // Detect 2D/3D dimension from scene content
+  featureSet.add(getDimensionFeature(scene))
 
   for (const rel of scene.relationships ?? []) {
     relationshipTypes.add(rel.type)

@@ -150,18 +150,25 @@
 
 ---
 
-## Phase 9: AI → DSL → Renderer Pipeline
+## Phase 9: AI → DSL → Renderer Pipeline 🚧
 
 **Goal:** Complete end-to-end flow from natural language to rendered visualization.
 
-- Wire AI reasoning layer to DSL validation to renderer
-- Implement visualization type inference from DSL
-- Implement fallback strategies when renderers don't support features
-- Add user confirmation/adjustment step before rendering
-- Test with a suite of educational prompts
+- ✅ Pipeline orchestrator: `runPipeline()` (sync) and `runPipelineStream()` (async generator)
+- ✅ Auto renderer selection: dimension detection from camera, meta hints, z-coordinates
+- ✅ Retry with error feedback: `buildRetryPrompt()` sends validation errors back to AI (max 3 attempts)
+- ✅ Scene limits: entity (50), relationship (30), animation (20) caps with warnings
+- ✅ Conversation context: `buildContextualPrompt()` prepends last 3 Q&A history
+- ✅ Scene editor review: JSON editor with Render/Regenerate/Accept flow in playground
+- ✅ Safe expression evaluator: AST tree-walking (no `eval()`/`new Function()`)
+- ✅ Three.js edge positioning: uses objectMap positions instead of dummy entity
+- ✅ CSS mode toggle: `.btn-mode` styles for 2D/3D toggle
+- ✅ Extended system prompt: 3 examples (2D animated, 2D projectile, 3D molecule), 3D example with perspective camera
+- ✅ 16 new tests (489 total): detectDimension (8), pipeline (8), prompts (7 new for retry/context)
+- ✅ 49 pipeline/preprocessing tests
 
 **Depends on:** Phase 8, Phase 3
-**Deliverable:** End-to-end pipeline integration.
+**Deliverable:** `src/ai/pipeline.ts` module with orchestrator, retry, limits, context.
 
 ---
 

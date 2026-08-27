@@ -8,9 +8,8 @@ import type { ThreeSceneOutput } from '../renderers/three/types'
 import type { Scene } from '../ir/types'
 import type { RenderResult } from '../engine/renderer/types'
 import type { DSLGenerationResult } from '../ai/types'
-
-type GenLogEntry = { time: string; type: 'status' | 'stream' | 'done' | 'error'; message: string }
-import { generateScene, generateSceneStream } from '../ai/extractor'
+import type { ContextEntry } from '../ai/prompts'
+import { runPipelineStream, checkSceneLimits, DEFAULT_PIPELINE_OPTIONS } from '../ai/pipeline'
 import { setOllamaConfig, checkHealth } from '../ai/ollama-client'
 import { examples, type Example } from './examples/index'
 import { examples3D } from './examples/three3d'
@@ -18,7 +17,10 @@ import { ExampleSelector } from './components/ExampleSelector'
 import { VisualizationPanel } from './components/VisualizationPanel'
 import { ThreePanel } from './components/ThreePanel'
 import { SceneInfo } from './components/SceneInfo'
+import { SceneEditor } from './components/SceneEditor'
 
+type GenLogEntry = { time: string; type: 'status' | 'stream' | 'done' | 'error' | 'retry' | 'validation'; message: string }
+type ReviewState = 'idle' | 'generating' | 'reviewing' | 'rendering'
 type RendererMode = '2d' | '3d'
 type AppMode = 'browse' | 'generate'
 
@@ -43,10 +45,12 @@ export default function App() {
   const [threeOutput, setThreeOutput] = useState<ThreeSceneOutput | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [question, setQuestion] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [reviewState, setReviewState] = useState<ReviewState>('idle')
   const [genResult, setGenResult] = useState<DSLGenerationResult | null>(null)
   const [ollamaStatus, setOllamaStatus] = useState<'unknown' | 'ok' | 'error'>('unknown')
   const [genLogs, setGenLogs] = useState<GenLogEntry[]>([])
+  const [contextHistory, setContextHistory] = useState<ContextEntry[]>([])
+  const [sceneWarnings, setSceneWarnings] = useState<string[]>([])
   const logEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -92,6 +96,21 @@ export default function App() {
     }
   }, [])
 
+  const renderEditedScene = useCallback(async (jsonString: string) => {
+    try {
+      const scene = JSON.parse(jsonString) as Scene
+      const target = rendererMode === '3d' ? 'three-3d' : 'svg-2d'
+      setReviewState('rendering')
+      const warnings = checkSceneLimits(scene, DEFAULT_PIPELINE_OPTIONS)
+      setSceneWarnings(warnings)
+      await renderScene(scene, rendererMode === '3d' ? '3d' : '2d')
+      setReviewState('idle')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setReviewState('idle')
+    }
+  }, [rendererMode, renderScene])
+
   useEffect(() => {
     setSelectedIndex(0)
   }, [rendererMode])
@@ -110,12 +129,6 @@ export default function App() {
   }, [svgString, rendererMode])
 
   useEffect(() => {
-    if (appMode === 'generate' && genResult) {
-      renderScene(genResult.scene, rendererMode)
-    }
-  }, [genResult, rendererMode, renderScene, appMode])
-
-  useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [genLogs])
 
@@ -131,6 +144,8 @@ export default function App() {
     setError(null)
     setGenResult(null)
     setGenLogs([])
+    setReviewState('idle')
+    setSceneWarnings([])
     if (mode === 'browse') {
       setQuestion('')
     }
@@ -154,33 +169,56 @@ export default function App() {
 
   const handleGenerateStream = async () => {
     if (!question.trim()) return
-    setIsGenerating(true)
+    setReviewState('generating')
     setError(null)
     setGenResult(null)
     setGenLogs([])
+    setSceneWarnings([])
 
     pushLog('status', `Sending prompt to Ollama (${question.trim().length} chars)...`)
     const t0 = Date.now()
 
-    let tokenCount = 0
+    let lastResult: DSLGenerationResult | null = null
     try {
-      for await (const event of generateSceneStream({ question: question.trim() })) {
-        if (event.type === 'start') {
-          pushLog('status', 'Model generating...')
+      for await (const event of runPipelineStream(
+        question.trim(),
+        engine,
+        undefined,
+        contextHistory.slice(-DEFAULT_PIPELINE_OPTIONS.contextHistory),
+      )) {
+        if (event.type === 'status') {
+          pushLog('status', event.message)
         } else if (event.type === 'chunk') {
-          tokenCount++
           const preview = event.text.length > 60 ? event.text.slice(0, 60) + '...' : event.text
-          pushLog('stream', `[${tokenCount}] ${preview}`)
-        } else if (event.type === 'end') {
-          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-          pushLog('done', `Generation complete (${elapsed}s, ${tokenCount} tokens)`)
+          pushLog('stream', `[${event.tokenCount}] ${preview}`)
+        } else if (event.type === 'validation-error') {
+          pushLog('validation', `Validation failed (attempt ${event.attempt}): ${event.errors.map((e) => e.message).join('; ')}`)
+        } else if (event.type === 'retry') {
+          pushLog('retry', `Retrying (attempt ${event.attempt}/${DEFAULT_PIPELINE_OPTIONS.maxRetries})...`)
+        } else if (event.type === 'preprocessed') {
+          pushLog('status', `Preprocessed: ${event.entityCount} entities`)
+        } else if (event.type === 'renderer-selected') {
+          pushLog('status', `Renderer: ${event.rendererId}`)
         } else if (event.type === 'error') {
           pushLog('error', event.message)
-        }
-        if (event.result) {
-          setGenResult(event.result)
-          pushLog('status', `Parsed via: ${event.result.parseMethod} — ${event.result.scene.entities.length} entities`)
-          pushLog('done', `Scene rendered successfully`)
+        } else if (event.type === 'done') {
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+          if (event.result.success && event.result.scene) {
+            lastResult = {
+              scene: event.result.scene,
+              raw: event.result.raw ?? '',
+              parseMethod: event.result.parseMethod ?? 'json',
+            }
+            setGenResult(lastResult)
+            setSceneWarnings(event.result.warnings)
+            pushLog('done', `Pipeline complete (${elapsed}s, ${event.result.attempts} attempt(s))`)
+            if (event.result.warnings.length > 0) {
+              pushLog('status', `Warnings: ${event.result.warnings.join('; ')}`)
+            }
+          } else {
+            pushLog('error', `Pipeline failed (${elapsed}s): ${event.result.errors.join('; ')}`)
+            setError(event.result.errors.join('; '))
+          }
         }
       }
       setOllamaStatus('ok')
@@ -193,12 +231,31 @@ export default function App() {
         setOllamaStatus('error')
       }
     } finally {
-      setIsGenerating(false)
+      if (reviewState !== 'reviewing') {
+        setReviewState(lastResult ? 'reviewing' : 'idle')
+      }
     }
   }
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     handleGenerateStream()
+  }
+
+  const handleAcceptScene = () => {
+    if (genResult) {
+      renderScene(genResult.scene, rendererMode === '3d' ? '3d' : '2d')
+      setReviewState('idle')
+      setContextHistory((prev) => [
+        ...prev.slice(-DEFAULT_PIPELINE_OPTIONS.contextHistory + 1),
+        { question: question.trim(), title: genResult.scene.meta.title ?? 'Untitled' },
+      ])
+    }
+  }
+
+  const handleRegenerate = () => {
+    setReviewState('idle')
+    setGenResult(null)
+    setSceneWarnings([])
   }
 
   return (
@@ -253,11 +310,14 @@ export default function App() {
               <div style={{ padding: '12px' }}>
                 <div style={{ marginBottom: '8px', fontSize: '13px', color: '#999' }}>
                   Status: {ollamaStatus === 'ok' ? 'Connected' : ollamaStatus === 'error' ? 'Disconnected' : 'Unknown'}
+                  {reviewState === 'generating' && <span style={{ color: '#ffa726', marginLeft: '8px' }}>Generating...</span>}
+                  {reviewState === 'reviewing' && <span style={{ color: '#64b5f6', marginLeft: '8px' }}>Review</span>}
+                  {reviewState === 'rendering' && <span style={{ color: '#4caf50', marginLeft: '8px' }}>Rendering...</span>}
                 </div>
                 <button
                   className="btn"
                   onClick={handleCheckHealth}
-                  disabled={isGenerating}
+                  disabled={reviewState === 'generating'}
                   style={{ marginBottom: '12px', fontSize: '12px' }}
                 >
                   Check Ollama
@@ -266,6 +326,7 @@ export default function App() {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Describe what you want to visualize..."
+                  disabled={reviewState === 'generating'}
                   style={{
                     width: '100%',
                     height: '120px',
@@ -287,15 +348,15 @@ export default function App() {
                   <button
                     className="btn"
                     onClick={handleGenerateStream}
-                    disabled={isGenerating || !question.trim()}
+                    disabled={reviewState === 'generating' || !question.trim()}
                     style={{ flex: 1 }}
                   >
-                    {isGenerating ? 'Generating...' : 'Generate'}
+                    {reviewState === 'generating' ? 'Generating...' : 'Generate'}
                   </button>
                   <button
                     className="btn"
-                    onClick={() => { setGenLogs([]); setGenResult(null); setError(null) }}
-                    disabled={isGenerating}
+                    onClick={() => { setGenLogs([]); setGenResult(null); setError(null); setReviewState('idle'); setSceneWarnings([]) }}
+                    disabled={reviewState === 'generating'}
                     style={{ fontSize: '12px' }}
                   >
                     Clear
@@ -304,6 +365,14 @@ export default function App() {
                 <div style={{ marginTop: '8px', fontSize: '11px', color: '#666' }}>
                   Ctrl+Enter to generate
                 </div>
+                {sceneWarnings.length > 0 && (
+                  <div style={{
+                    marginTop: '8px', padding: '6px 8px', background: '#fff3cd',
+                    border: '1px solid #ffc107', borderRadius: '4px', fontSize: '11px', color: '#856404',
+                  }}>
+                    {sceneWarnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+                  </div>
+                )}
                 {genLogs.length > 0 && (
                   <div style={{
                     marginTop: '12px',
@@ -318,17 +387,38 @@ export default function App() {
                     lineHeight: '1.5',
                   }}>
                     {genLogs.map((entry, i) => (
-                      <div key={i} style={{ color: entry.type === 'error' ? '#f44336' : entry.type === 'done' ? '#4caf50' : entry.type === 'stream' ? '#64b5f6' : '#aaa' }}>
+                      <div key={i} style={{ color: entry.type === 'error' ? '#f44336' : entry.type === 'done' ? '#4caf50' : entry.type === 'stream' ? '#64b5f6' : entry.type === 'retry' ? '#ff9800' : entry.type === 'validation' ? '#f44336' : '#aaa' }}>
                         <span style={{ color: '#555' }}>{entry.time}</span>{' '}
                         {entry.type === 'status' && <span style={{ color: '#ffa726' }}>● </span>}
                         {entry.type === 'stream' && <span style={{ color: '#64b5f6' }}>▸ </span>}
                         {entry.type === 'done' && <span style={{ color: '#4caf50' }}>✔ </span>}
                         {entry.type === 'error' && <span style={{ color: '#f44336' }}>✖ </span>}
+                        {entry.type === 'retry' && <span style={{ color: '#ff9800' }}>↻ </span>}
+                        {entry.type === 'validation' && <span style={{ color: '#f44336' }}>⚠ </span>}
                         {entry.message}
                       </div>
                     ))}
                     <div ref={logEndRef} />
                   </div>
+                )}
+                {reviewState === 'reviewing' && genResult && (
+                  <SceneEditor
+                    initialJSON={JSON.stringify(genResult.scene, null, 2)}
+                    onRender={renderEditedScene}
+                    onRegenerate={handleRegenerate}
+                    onCancel={() => setReviewState('idle')}
+                    isRendering={reviewState === 'rendering'}
+                  />
+                )}
+                {reviewState === 'reviewing' && genResult && (
+                  <button
+                    className="btn"
+                    onClick={handleAcceptScene}
+                    disabled={reviewState === 'rendering'}
+                    style={{ marginTop: '8px', width: '100%', background: '#238636', color: 'white', borderColor: '#2ea043' }}
+                  >
+                    Accept & Render
+                  </button>
                 )}
               </div>
             </>
@@ -355,7 +445,7 @@ export default function App() {
           {appMode === 'browse' && currentExample && (
             <SceneInfo example={currentExample} result={result} svgOutput={svgOutput} />
           )}
-          {appMode === 'generate' && genResult && (
+          {appMode === 'generate' && genResult && reviewState !== 'reviewing' && (
             <div style={{ padding: '12px', fontSize: '12px', color: '#666' }}>
               AI-generated scene: {genResult.scene.meta.title ?? 'Untitled'}
             </div>

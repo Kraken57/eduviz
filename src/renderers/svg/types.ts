@@ -1,4 +1,4 @@
-import type { EntityType } from '../../ir/types.js'
+import type { EntityType, Keyframe } from '../../ir/types.js'
 
 // ─── SVG Attribute Map ──────────────────────────────────────────────────────
 
@@ -64,4 +64,13 @@ export interface SvgRenderContext {
   entityMap: Record<string, EntityRenderEntry>
   animations: SvgAnimationMeta[]
   warnings: string[]
+  cssAnimations?: Array<{
+    entityId: string
+    property: string
+    keyframes: Keyframe[]
+    duration: number
+    easing?: string
+    loop?: boolean
+    delay?: number
+  }>
 }

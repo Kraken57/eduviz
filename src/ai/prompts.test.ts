@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { SYSTEM_PROMPT, buildGenerationPrompt } from './prompts.js'
+import { SYSTEM_PROMPT, buildGenerationPrompt, buildRetryPrompt, buildContextualPrompt } from './prompts.js'
 
 describe('AI Prompts', () => {
   describe('SYSTEM_PROMPT', () => {
@@ -38,8 +38,23 @@ describe('AI Prompts', () => {
       )
     })
 
+    it('contains animation instructions with explicit examples', () => {
+      assert.ok(SYSTEM_PROMPT.includes('keyframes'), 'missing keyframes instruction')
+      assert.ok(SYSTEM_PROMPT.includes('Pulsing Circle'), 'missing pulsing circle example')
+      assert.ok(SYSTEM_PROMPT.includes('Moving Ball'), 'missing moving ball example')
+    })
+
     it('is under 4000 tokens (rough estimate: ~4 chars per token)', () => {
       assert.ok(SYSTEM_PROMPT.length < 16000, `prompt too long: ${SYSTEM_PROMPT.length} chars`)
+    })
+
+    it('contains 3D example with perspective camera', () => {
+      assert.ok(SYSTEM_PROMPT.includes('perspective'), 'missing perspective camera example')
+      assert.ok(SYSTEM_PROMPT.includes('Water Molecule'), 'missing 3D example title')
+    })
+
+    it('mentions entity limit rule', () => {
+      assert.ok(SYSTEM_PROMPT.includes('50 entities'), 'missing 50 entity limit rule')
     })
   })
 
@@ -64,6 +79,53 @@ describe('AI Prompts', () => {
     it('handles empty question', () => {
       const result = buildGenerationPrompt('', 'context')
       assert.ok(result.includes('context'))
+    })
+  })
+
+  describe('buildRetryPrompt', () => {
+    it('includes error messages', () => {
+      const errors = [
+        { path: '$.entities[0].id', message: 'must be a non-empty string' },
+        { path: '$.entities[1].type', message: 'must be one of: shape, text' },
+      ]
+      const result = buildRetryPrompt('question', '{"meta":{}}', errors)
+      assert.ok(result.includes('must be a non-empty string'))
+      assert.ok(result.includes('must be one of: shape, text'))
+      assert.ok(result.includes('Fix these errors'))
+    })
+
+    it('includes previous response', () => {
+      const result = buildRetryPrompt('q', '{"bad":"json"}', [{ path: '$.x', message: 'bad' }])
+      assert.ok(result.includes('{"bad":"json"}'))
+    })
+  })
+
+  describe('buildContextualPrompt', () => {
+    it('returns question as-is when no context', () => {
+      const result = buildContextualPrompt('Show me a circle')
+      assert.equal(result, 'Show me a circle')
+    })
+
+    it('includes history when provided', () => {
+      const context = [
+        { question: 'Show a circle', title: 'Circle' },
+        { question: 'Make it bigger', title: 'Big Circle' },
+      ]
+      const result = buildContextualPrompt('Add a label', context)
+      assert.ok(result.includes('Previous context:'))
+      assert.ok(result.includes('Show a circle'))
+      assert.ok(result.includes('Circle'))
+      assert.ok(result.includes('Add a label'))
+    })
+
+    it('limits context to recent entries', () => {
+      const context = [
+        { question: 'q1', title: 't1' },
+        { question: 'q2', title: 't2' },
+        { question: 'q3', title: 't3' },
+      ]
+      const result = buildContextualPrompt('q4', context)
+      assert.ok(result.includes('q4'))
     })
   })
 })

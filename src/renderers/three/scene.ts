@@ -73,10 +73,6 @@ export function clearMaterialCache(): void {
 
 // ─── Position Helpers ─────────────────────────────────────────────────────
 
-function getEntityPosition(entity: Entity): { x: number; y: number; z: number } {
-  return resolvePosition(entity.properties)
-}
-
 function applyTransforms(
   object: InstanceType<ThreeModule['Object3D']>,
   props: PropertyBag,
@@ -249,8 +245,8 @@ export function buildThreeScene(
       const fromObj = objectMap.get(rel.from)
       const toObj = objectMap.get(rel.to)
       if (fromObj && toObj) {
-        const fromPos = getEntityPosition({ id: rel.from, type: 'shape', properties: {} })
-        const toPos = getEntityPosition({ id: rel.to, type: 'shape', properties: {} })
+        const fromPos = { x: fromObj.position.x, y: fromObj.position.y, z: fromObj.position.z }
+        const toPos = { x: toObj.position.x, y: toObj.position.y, z: toObj.position.z }
         const line = createEdgeLine(fromPos, toPos)
         line.name = `edge-${rel.from}-${rel.to}`
         threeScene.add(line)

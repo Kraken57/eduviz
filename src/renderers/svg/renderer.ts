@@ -104,7 +104,7 @@ export class SvgRenderer implements Renderer {
       }
     }
 
-    const svg = wrapSvgDocument(viewport, content)
+    const svg = wrapSvgDocument(viewport, content, ctx)
     const output = buildSvgOutput(svg, viewport, ctx.entityMap, ctx.animations, warnings)
 
     return {

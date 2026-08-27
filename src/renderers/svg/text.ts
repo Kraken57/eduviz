@@ -1,6 +1,7 @@
 import type { Entity } from '../../ir/types.js'
 import type { SvgRenderContext } from './types.js'
 import { textElement, tspan } from './builders.js'
+import { getAnimationClassName } from './animations.js'
 import {
   extractFill,
   extractFontFamily,
@@ -64,6 +65,12 @@ export function renderText(entity: Entity, ctx: SvgRenderContext): string {
   }
   if (transformParts.length > 0) {
     attrs['transform'] = transformParts.join(' ')
+  }
+
+  // Add CSS animation classes
+  const anims = ctx.cssAnimations?.filter(a => a.entityId === entity.id)
+  if (anims && anims.length > 0) {
+    attrs['class'] = anims.map(a => getAnimationClassName(a.entityId, a.property)).join(' ')
   }
 
   const lines = content.split('\n')

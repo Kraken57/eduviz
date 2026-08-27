@@ -1,5 +1,6 @@
-import type { SvgSceneOutput, ViewportConfig } from './types.js'
+import type { SvgSceneOutput, SvgRenderContext, ViewportConfig } from './types.js'
 import { svgDocument } from './builders.js'
+import { buildCssAnimationBlock } from './animations.js'
 
 // ─── Default Viewport ───────────────────────────────────────────────────────
 
@@ -28,7 +29,12 @@ export function resolveViewport(irViewport?: {
 export function wrapSvgDocument(
   viewport: ViewportConfig,
   content: string[],
+  ctx?: SvgRenderContext,
 ): string {
+  const cssBlock = ctx ? buildCssAnimationBlock(ctx) : ''
+  if (cssBlock) {
+    content = [cssBlock, ...content]
+  }
   return svgDocument(viewport.width, viewport.height, viewport.background, content)
 }
 

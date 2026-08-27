@@ -341,6 +341,37 @@ src/ai/
 
 6. **AI layer is isolated.** `src/ai/` imports from `src/ir/` (for `validateScene`) and `src/ir/types.ts` (for `Scene`) but never from `src/engine/` or `src/renderers/`. The AI produces Scene JSON; the engine consumes it.
 
+### Pipeline Orchestrator
+
+Connects AI reasoning to renderer. Orchestrates: generate → validate → retry → preprocess → render.
+
+**Implementation (`src/ai/pipeline.ts`):**
+
+```
+runPipelineStream(question, engine, mock, context)
+  → 1. buildContextualPrompt(question, context)
+  → 2. generateSceneStream({ question: prompt })
+  → 3. validateExtractedScene(result)
+  → 4. If invalid: buildRetryPrompt() → goto 2 (max 3 attempts)
+  → 5. checkSceneLimits() → warnings
+  → 6. engine.preprocess(scene)
+  → 7. { scene, warnings, attempts }
+```
+
+**Key design decisions:**
+
+1. **Async generator pattern.** `runPipelineStream()` yields `PipelineEvent` objects (status, chunk, retry, validation-error, preprocessed, renderer-selected, done) — same streaming interface as the raw AI layer, giving the playground real-time feedback.
+
+2. **Auto renderer selection.** `detectDimension()` inspects camera projection, meta hints, and z-coordinates to infer '2d' vs '3d'. The dimension feature is automatically appended to scene requirements, so the engine selects the right renderer without user configuration.
+
+3. **Retry with error feedback.** Failed validation sends errors back to the AI via `buildRetryPrompt()` with the previous JSON. Max 3 attempts. This gives Gemma a chance to self-correct common mistakes (missing `id`, invalid `type`, invalid property names).
+
+4. **Scene limits.** Caps: 50 entities, 30 relationships, 20 animations. Over-limit scenes render but produce warnings in the playground. Prevents runaway generation.
+
+5. **Conversation context.** `ContextEntry { question, title }` array. `buildContextualPrompt()` prepends last 3 Q&A pairs so the AI can build on previous visualizations in multi-turn conversations.
+
+6. **Pipeline is engine-agnostic.** `pipeline.ts` accepts a `VisualizationEngine` instance (dependency injection) and only calls its public API (`preprocess`, `render`). It never imports renderer code directly.
+
 ## Technology Stack
 
 | Layer | Technology | Rationale |

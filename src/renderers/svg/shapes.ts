@@ -1,6 +1,7 @@
 import type { Entity } from '../../ir/types.js'
 import type { SvgRenderContext } from './types.js'
 import { circle, ellipse, line, path, polygon, rect } from './builders.js'
+import { getAnimationClassName } from './animations.js'
 import {
   extractFill,
   extractHeight,
@@ -50,6 +51,10 @@ export function renderShape(entity: Entity, ctx: SvgRenderContext): string {
     opacity,
   }
   if (transform) commonAttrs['transform'] = transform
+
+  // Add CSS animation classes for geometric properties
+  const cssClasses = getCssAnimationClasses(entity.id, ctx)
+  if (cssClasses) commonAttrs['class'] = cssClasses
 
   switch (shapeType) {
     case 'circle': {
@@ -111,6 +116,14 @@ export function renderShape(entity: Entity, ctx: SvgRenderContext): string {
       return rect({ ...commonAttrs, x: pos.x - w / 2, y: pos.y - h / 2, width: w, height: h, 'stroke-dasharray': '4 2' })
     }
   }
+}
+
+// ─── CSS Animation Classes ──────────────────────────────────────────────────
+
+function getCssAnimationClasses(entityId: string, ctx: SvgRenderContext): string | undefined {
+  const anims = ctx.cssAnimations?.filter(a => a.entityId === entityId)
+  if (!anims || anims.length === 0) return undefined
+  return anims.map(a => getAnimationClassName(a.entityId, a.property)).join(' ')
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

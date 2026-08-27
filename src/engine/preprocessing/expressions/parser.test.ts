@@ -43,41 +43,41 @@ describe('Expression Evaluator', () => {
 
   describe('comparison', () => {
     it('evaluates less than', () => {
-      assert.equal(evaluateExpression('3 < 5', {}), true)
+      assert.equal(evaluateExpression('3 < 5', {}), 1)
     })
 
     it('evaluates greater than', () => {
-      assert.equal(evaluateExpression('7 > 3', {}), true)
+      assert.equal(evaluateExpression('7 > 3', {}), 1)
     })
 
     it('evaluates less or equal', () => {
-      assert.equal(evaluateExpression('5 <= 5', {}), true)
+      assert.equal(evaluateExpression('5 <= 5', {}), 1)
     })
 
     it('evaluates greater or equal', () => {
-      assert.equal(evaluateExpression('6 >= 5', {}), true)
+      assert.equal(evaluateExpression('6 >= 5', {}), 1)
     })
 
     it('evaluates equality', () => {
-      assert.equal(evaluateExpression('5 == 5', {}), true)
+      assert.equal(evaluateExpression('5 == 5', {}), 1)
     })
 
     it('evaluates inequality', () => {
-      assert.equal(evaluateExpression('5 != 3', {}), true)
+      assert.equal(evaluateExpression('5 != 3', {}), 1)
     })
   })
 
   describe('logic', () => {
     it('evaluates logical AND', () => {
-      assert.equal(evaluateExpression('true && true', {}), true)
+      assert.equal(evaluateExpression('true && true', {}), 1)
     })
 
     it('evaluates logical OR', () => {
-      assert.equal(evaluateExpression('false || true', {}), true)
+      assert.equal(evaluateExpression('false || true', {}), 1)
     })
 
     it('evaluates logical NOT', () => {
-      assert.equal(evaluateExpression('!false', {}), true)
+      assert.equal(evaluateExpression('!false', {}), 1)
     })
   })
 
